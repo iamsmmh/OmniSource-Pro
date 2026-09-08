@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum as SQLEnum, Integer, String, Text, func
+from sqlalchemy import ForeignKey, JSON, Boolean, DateTime, Enum as SQLEnum, Float, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base
@@ -45,10 +45,10 @@ class Quarantine(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     application_id: Mapped[Optional[UUID]] = mapped_column(
-        foreign_key="applications.id", index=True
+        ForeignKey("applications.id"), index=True
     )
     asset_id: Mapped[Optional[UUID]] = mapped_column(
-        foreign_key="assets.id", index=True
+        ForeignKey("assets.id"), index=True
     )
     reason: Mapped[QuarantineReason] = mapped_column(
         SQLEnum(QuarantineReason), nullable=False, index=True
@@ -57,7 +57,7 @@ class Quarantine(Base):
         SQLEnum(QuarantineStatus), default=QuarantineStatus.QUARANTINED, index=True
     )
     description: Mapped[Optional[str]] = mapped_column(Text)
-    details: Mapped[dict] = mapped_column(String, default={})
+    details: Mapped[dict] = mapped_column(JSON, default=dict)
     quarantined_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(UTC), nullable=False
     )
@@ -84,13 +84,13 @@ class SecurityScan(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     application_id: Mapped[UUID] = mapped_column(
-        foreign_key="applications.id", nullable=False, index=True
+        ForeignKey("applications.id"), nullable=False, index=True
     )
     scan_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     scanner_version: Mapped[Optional[str]] = mapped_column(String(50))
     scan_status: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    findings: Mapped[list[dict]] = mapped_column(String, default=[])
-    vulnerabilities: Mapped[list[dict]] = mapped_column(String, default=[])
+    findings: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    vulnerabilities: Mapped[list[dict]] = mapped_column(JSON, default=list)
     severity: Mapped[Optional[str]] = mapped_column(String(50))
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     scanned_at: Mapped[datetime] = mapped_column(

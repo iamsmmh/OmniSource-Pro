@@ -10,13 +10,11 @@ from omnisource.core.models.platform import Platform, Architecture
 from omnisource.core.models.category import Category, Tag
 from omnisource.core.models.release import Release, ReleaseAsset, ReleaseHistory
 from omnisource.core.models.asset import Asset, AssetValidation
-from omnisource.core.models.screenshot import Screenshot
-from omnisource.core.models.icon import Icon
+from omnisource.core.models.screenshot import Screenshot, Icon
 from omnisource.core.models.scores import TrustScore, QualityScore, PopularityScore
 from omnisource.core.models.validation import ValidationResult
 from omnisource.core.models.sync import SyncState, SyncJob
-from omnisource.core.models.quarantine import Quarantine
-from omnisource.core.models.security import SecurityScan
+from omnisource.core.models.quarantine import Quarantine, SecurityScan, SecurityStatus
 
 __all__ = [
     "Base",
@@ -48,4 +46,5 @@ __all__ = [
     "SyncJob",
     "Quarantine",
     "SecurityScan",
+    "SecurityStatus",
 ]

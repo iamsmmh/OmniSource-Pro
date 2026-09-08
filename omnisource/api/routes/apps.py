@@ -13,7 +13,7 @@ from omnisource.config.settings import get_settings
 from omnisource.config.logging import get_logger
 from omnisource.core.schemas.omnistore import OmniStoreApp, PaginatedApps
 from omnisource.core.repositories.application import ApplicationRepository
-from omnisource.core.database.session import get_session
+from omnisource.api.dependencies import get_db
 
 logger = get_logger(__name__)
 
@@ -37,7 +37,7 @@ async def list_apps(
     ),
     page: int = Query(default=1, ge=1, description="Page number"),
     per_page: int = Query(default=30, ge=1, le=100, description="Items per page"),
-    session=Depends(get_session),
+    session=Depends(get_db),
 ) -> PaginatedApps:
     """
     List applications with optional filtering and sorting.
@@ -78,7 +78,7 @@ async def list_apps(
 @router.get("/{app_id}", response_model=OmniStoreApp)
 async def get_app(
     app_id: str,
-    session=Depends(get_session),
+    session=Depends(get_db),
 ) -> OmniStoreApp:
     """
     Get a specific application by ID or slug.

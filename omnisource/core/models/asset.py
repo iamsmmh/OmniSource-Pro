@@ -5,11 +5,12 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Enum as SQLEnum, Float, Integer, String, func
+from sqlalchemy import ForeignKey, JSON, BigInteger, Boolean, DateTime, Enum as SQLEnum, Float, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base
 from omnisource.core.models.platform import Platform, Architecture
+from omnisource.core.models.release import ReleaseAsset
 
 
 class AssetStatus(str, Enum):
@@ -83,10 +84,10 @@ class Asset(Base):
     
     # Platform and architecture
     platform_id: Mapped[Optional[UUID]] = mapped_column(
-        foreign_key="platforms.id", index=True
+        ForeignKey("platforms.id"), index=True
     )
     architecture_id: Mapped[Optional[UUID]] = mapped_column(
-        foreign_key="architectures.id", index=True
+        ForeignKey("architectures.id"), index=True
     )
     detected_platform: Mapped[Optional[str]] = mapped_column(String(50))
     detected_architecture: Mapped[Optional[str]] = mapped_column(String(50))
@@ -130,7 +131,7 @@ class Asset(Base):
     release_assets: Mapped[list[ReleaseAsset]] = relationship(
         "ReleaseAsset", back_populates="asset", cascade="all, delete-orphan"
     )
-    validation: Mapped[Optional[AssetValidation]] = relationship(
+    validation: Mapped[Optional["AssetValidation"]] = relationship(
         "AssetValidation", back_populates="asset", uselist=False, cascade="all, delete-orphan"
     )
 
@@ -142,7 +143,7 @@ class AssetValidation(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     asset_id: Mapped[UUID] = mapped_column(
-        foreign_key="assets.id", nullable=False, unique=True, index=True
+        ForeignKey("assets.id"), nullable=False, unique=True, index=True
     )
     is_valid: Mapped[bool] = mapped_column(Boolean, nullable=False)
     http_status: Mapped[Optional[int]] = mapped_column(Integer)
@@ -150,8 +151,8 @@ class AssetValidation(Base):
     actual_sha256: Mapped[Optional[str]] = mapped_column(String(128))
     actual_sha512: Mapped[Optional[str]] = mapped_column(String(128))
     actual_mime_type: Mapped[Optional[str]] = mapped_column(String(100))
-    validation_errors: Mapped[list[str]] = mapped_column(String, default=[])
-    warnings: Mapped[list[str]] = mapped_column(String, default=[])
+    validation_errors: Mapped[list[str]] = mapped_column(JSON, default=list)
+    warnings: Mapped[list[str]] = mapped_column(JSON, default=list)
     validated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(UTC), nullable=False
     )

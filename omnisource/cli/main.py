@@ -370,7 +370,7 @@ async def _create_default_data() -> None:
             existing = await session.execute(
                 select(Platform).where(Platform.platform_type == platform_data["platform_type"])
             )
-            if existing.scalar_one() is None:
+            if existing.scalar_one_or_none() is None:
                 platform = Platform(**platform_data)
                 session.add(platform)
         
@@ -389,7 +389,7 @@ async def _create_default_data() -> None:
             existing = await session.execute(
                 select(Architecture).where(Architecture.architecture_type == arch_data["architecture_type"])
             )
-            if existing.scalar_one() is None:
+            if existing.scalar_one_or_none() is None:
                 arch = Architecture(**arch_data)
                 session.add(arch)
         
@@ -398,7 +398,7 @@ async def _create_default_data() -> None:
             existing = await session.execute(
                 select(Category).where(Category.category_type == cat_type.value)
             )
-            if existing.scalar_one() is None:
+            if existing.scalar_one_or_none() is None:
                 category = Category(
                     category_type=cat_type.value,
                     name=cat_info["name"],
@@ -419,7 +419,7 @@ async def _create_default_data() -> None:
             existing = await session.execute(
                 select(Source).where(Source.name == source_data["name"])
             )
-            if existing.scalar_one() is None:
+            if existing.scalar_one_or_none() is None:
                 source = Source(**source_data)
                 session.add(source)
         

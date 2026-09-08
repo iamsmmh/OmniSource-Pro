@@ -1,0 +1,50 @@
+"""Platforms API routes for OmniSource."""
+
+from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
+
+from omnisource.config.logging import get_logger
+from omnisource.api.dependencies import get_db
+from omnisource.core.models.platform import Platform
+from omnisource.core.schemas.platform import PlatformSchema
+
+logger = get_logger(__name__)
+
+router = APIRouter()
+
+
+@router.get("", response_model=List[PlatformSchema])
+async def list_platforms(
+    active_only: bool = Query(default=True, description="Only active platforms"),
+    session=Depends(get_db),
+):
+    """List all supported platforms."""
+    try:
+        query = select(Platform).order_by(Platform.name.asc())
+        if active_only:
+            query = query.where(Platform.is_active.is_(True))
+        result = await session.execute(query)
+        return list(result.scalars().all())
+    except Exception as e:
+        logger.error(f"Failed to list platforms: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{platform_type}")
+async def get_platform(platform_type: str, session=Depends(get_db)):
+    """Get a single platform by type."""
+    try:
+        result = await session.execute(
+            select(Platform).where(Platform.platform_type == platform_type)
+        )
+        platform = result.scalar_one_or_none()
+        if platform is None:
+            raise HTTPException(status_code=404, detail="Platform not found")
+        return PlatformSchema.model_validate(platform).model_dump()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get platform {platform_type}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

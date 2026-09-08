@@ -9,7 +9,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Optional, List
 
-from pydantic import BaseModel, Field, HttpUrl, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_serializer
 
 
 class OmniStorePlatform(str, Enum):
@@ -60,8 +60,8 @@ class OmniStoreAsset(BaseModel):
         description="Asset validation status"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "app-win-x64",
                 "platform": "windows",
@@ -75,6 +75,7 @@ class OmniStoreAsset(BaseModel):
                 "status": "VALID"
             }
         }
+    )
 
 
 class OmniStoreRelease(BaseModel):
@@ -85,8 +86,8 @@ class OmniStoreRelease(BaseModel):
     notes: Optional[str] = Field(default=None, description="Release notes")
     assets: List[OmniStoreAsset] = Field(default_factory=list, description="Release assets")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "version": "1.0.0",
                 "released_at": "2026-01-01T00:00:00Z",
@@ -94,6 +95,7 @@ class OmniStoreRelease(BaseModel):
                 "assets": []
             }
         }
+    )
 
 
 class OmniStoreDeveloper(BaseModel):
@@ -104,8 +106,8 @@ class OmniStoreDeveloper(BaseModel):
     name: str = Field(..., description="Developer name")
     url: Optional[HttpUrl] = Field(default=None, description="Developer URL")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "example-dev",
                 "slug": "example-dev",
@@ -113,6 +115,7 @@ class OmniStoreDeveloper(BaseModel):
                 "url": "https://github.com/example"
             }
         }
+    )
 
 
 class OmniStoreScores(BaseModel):
@@ -130,8 +133,8 @@ class OmniStoreScores(BaseModel):
         description="Factors contributing to quality score"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "trust": 94,
                 "quality": 90,
@@ -140,6 +143,7 @@ class OmniStoreScores(BaseModel):
                 "quality_factors": ["Documentation", "Release consistency"]
             }
         }
+    )
 
 
 class OmniStoreApp(BaseModel):
@@ -188,8 +192,8 @@ class OmniStoreApp(BaseModel):
     open_source: bool = Field(default=True, description="Is open source")
     active_development: Optional[bool] = Field(default=None, description="Actively developed")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "localsend",
                 "slug": "localsend",
@@ -233,6 +237,7 @@ class OmniStoreApp(BaseModel):
                 }
             }
         }
+    )
 
 
 class PaginatedApps(BaseModel):
@@ -243,8 +248,8 @@ class PaginatedApps(BaseModel):
     page: Optional[int] = Field(default=None, description="Current page number")
     freshness: Optional[str] = Field(default=None, description="Data freshness timestamp")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "items": [],
                 "total": 0,
@@ -252,3 +257,13 @@ class PaginatedApps(BaseModel):
                 "freshness": "2026-09-07T00:00:00.000Z"
             }
         }
+    )
+
+
+# Backwards-compatible aliases (used by omnisource.core.schemas.__init__)
+OmniStoreAppSchema = OmniStoreApp
+OmniStoreAssetSchema = OmniStoreAsset
+OmniStoreReleaseSchema = OmniStoreRelease
+OmniStoreDeveloperSchema = OmniStoreDeveloper
+OmniStoreScoresSchema = OmniStoreScores
+PaginatedAppsSchema = PaginatedApps

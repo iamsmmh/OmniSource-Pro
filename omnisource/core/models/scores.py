@@ -4,7 +4,7 @@ from datetime import datetime, UTC
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, func
+from sqlalchemy import ForeignKey, JSON, Boolean, DateTime, Float, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base
@@ -18,11 +18,11 @@ class ScoreFactor(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     application_id: Mapped[UUID] = mapped_column(
-        foreign_key="applications.id", nullable=False, unique=True, index=True
+        ForeignKey("applications.id"), nullable=False, unique=True, index=True
     )
     score: Mapped[float] = mapped_column(Float, default=0.0)
     normalized_score: Mapped[float] = mapped_column(Float, default=0.0)
-    factors: Mapped[dict] = mapped_column(String, default={})
+    factors: Mapped[dict] = mapped_column(JSON, default=dict)
     calculated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(UTC), nullable=False
     )

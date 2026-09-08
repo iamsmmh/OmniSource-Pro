@@ -13,7 +13,7 @@ from omnisource.config.settings import get_settings
 from omnisource.config.logging import get_logger
 from omnisource.core.schemas.omnistore import OmniStoreApp
 from omnisource.core.repositories.application import ApplicationRepository
-from omnisource.core.database.session import get_session
+from omnisource.api.dependencies import get_db
 
 logger = get_logger(__name__)
 
@@ -22,7 +22,7 @@ router = APIRouter()
 
 @router.get("/v1/ios.json")
 async def get_ios_feed(
-    session=Depends(get_session),
+    session=Depends(get_db),
 ) -> List[OmniStoreApp]:
     """Get iOS feed."""
     try:
@@ -36,7 +36,7 @@ async def get_ios_feed(
 
 @router.get("/v1/android.json")
 async def get_android_feed(
-    session=Depends(get_session),
+    session=Depends(get_db),
 ) -> List[OmniStoreApp]:
     """Get Android feed."""
     try:
@@ -50,7 +50,7 @@ async def get_android_feed(
 
 @router.get("/v1/windows.json")
 async def get_windows_feed(
-    session=Depends(get_session),
+    session=Depends(get_db),
 ) -> List[OmniStoreApp]:
     """Get Windows feed."""
     try:
@@ -64,7 +64,7 @@ async def get_windows_feed(
 
 @router.get("/v1/macos.json")
 async def get_macos_feed(
-    session=Depends(get_session),
+    session=Depends(get_db),
 ) -> List[OmniStoreApp]:
     """Get macOS feed."""
     try:
@@ -78,7 +78,7 @@ async def get_macos_feed(
 
 @router.get("/v1/linux.json")
 async def get_linux_feed(
-    session=Depends(get_session),
+    session=Depends(get_db),
 ) -> List[OmniStoreApp]:
     """Get Linux feed."""
     try:
@@ -92,7 +92,7 @@ async def get_linux_feed(
 
 @router.get("/v1/all.json")
 async def get_all_feed(
-    session=Depends(get_session),
+    session=Depends(get_db),
 ) -> List[OmniStoreApp]:
     """Get all platforms feed."""
     try:

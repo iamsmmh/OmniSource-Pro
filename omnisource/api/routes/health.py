@@ -2,23 +2,23 @@
 Health check API routes for OmniSource.
 """
 
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from omnisource.config.settings import get_settings
 from omnisource.config.logging import get_logger
 from omnisource.connectors.base import ConnectorHealth
-from omnisource.core.database.session import get_session
 
 logger = get_logger(__name__)
 
 router = APIRouter()
 
 
-@router.get("", response_model=Dict[str, any])
-async def health() -> Dict[str, any]:
+@router.get("", response_model=Dict[str, Any])
+async def health() -> Dict[str, Any]:
     """
     Full health check endpoint.
     
@@ -35,7 +35,7 @@ async def health() -> Dict[str, any]:
         from omnisource.core.database.base import get_async_engine
         engine = get_async_engine()
         async with engine.begin() as conn:
-            await conn.execute("SELECT 1")
+            await conn.execute(text("SELECT 1"))
         health_status["components"]["database"] = {
             "status": "healthy",
             "type": "postgresql",
@@ -122,8 +122,8 @@ async def health_live() -> Dict[str, str]:
     return {"status": "alive"}
 
 
-@router.get("/ready", response_model=Dict[str, any])
-async def health_ready() -> Dict[str, any]:
+@router.get("/ready", response_model=Dict[str, Any])
+async def health_ready() -> Dict[str, Any]:
     """
     Readiness probe.
     
@@ -140,7 +140,7 @@ async def health_ready() -> Dict[str, any]:
         from omnisource.core.database.base import get_async_engine
         engine = get_async_engine()
         async with engine.begin() as conn:
-            await conn.execute("SELECT 1")
+            await conn.execute(text("SELECT 1"))
         ready_status["database"] = True
     except Exception:
         ready_status["status"] = "not_ready"

@@ -4,7 +4,7 @@ from datetime import datetime, UTC
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
+from sqlalchemy import ForeignKey, Boolean, DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base
@@ -19,7 +19,7 @@ class Screenshot(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     application_id: Mapped[UUID] = mapped_column(
-        foreign_key="applications.id", nullable=False, index=True
+        ForeignKey("applications.id"), nullable=False, index=True
     )
     url: Mapped[str] = mapped_column(String(500), nullable=False)
     thumbnail_url: Mapped[Optional[str]] = mapped_column(String(500))
@@ -28,7 +28,7 @@ class Screenshot(Base):
     alt_text: Mapped[Optional[str]] = mapped_column(String(500))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     platform_id: Mapped[Optional[UUID]] = mapped_column(
-        foreign_key="platforms.id", index=True
+        ForeignKey("platforms.id"), index=True
     )
     width: Mapped[Optional[int]] = mapped_column(Integer)
     height: Mapped[Optional[int]] = mapped_column(Integer)
@@ -54,7 +54,7 @@ class Icon(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     application_id: Mapped[UUID] = mapped_column(
-        foreign_key="applications.id", nullable=False, index=True
+        ForeignKey("applications.id"), nullable=False, index=True
     )
     url: Mapped[str] = mapped_column(String(500), nullable=False)
     cached_url: Mapped[Optional[str]] = mapped_column(String(500))

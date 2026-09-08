@@ -19,14 +19,26 @@ def get_async_engine() -> AsyncEngine:
     global _engine
     if _engine is None:
         settings = get_settings()
-        _engine = create_async_engine(
-            settings.database.DATABASE_URL,
-            pool_size=settings.database.DATABASE_POOL_SIZE,
-            max_overflow=settings.database.DATABASE_MAX_OVERFLOW,
-            pool_timeout=settings.database.DATABASE_POOL_TIMEOUT,
-            echo=settings.database.DATABASE_ECHO,
-        )
+        url = str(settings.database.DATABASE_URL)
+
+        engine_kwargs: dict = {
+            "echo": settings.database.DATABASE_ECHO,
+        }
+        # Pool arguments are only valid for PostgreSQL (asyncpg) connections.
+        if url.startswith("postgresql"):
+            engine_kwargs.update(
+                pool_size=settings.database.DATABASE_POOL_SIZE,
+                max_overflow=settings.database.DATABASE_MAX_OVERFLOW,
+                pool_timeout=settings.database.DATABASE_POOL_TIMEOUT,
+            )
+
+        _engine = create_async_engine(url, **engine_kwargs)
     return _engine
+
+
+def get_engine() -> AsyncEngine:
+    """Alias for get_async_engine (compatibility)."""
+    return get_async_engine()
 
 
 def get_async_session() -> async_sessionmaker:
@@ -60,7 +72,7 @@ async def init_db() -> AsyncEngine:
     async with engine.begin() as conn:
         # Enable UUID extension if PostgreSQL
         if "postgresql" in str(engine.url):
-            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS "pgcrypto"""))
+            await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "pgcrypto"'))
         
         # Create all tables
         await conn.run_sync(Base.metadata.create_all)

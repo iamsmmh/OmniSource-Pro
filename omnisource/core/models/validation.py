@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum as SQLEnum, Integer, String, Text, func
+from sqlalchemy import ForeignKey, JSON, Boolean, DateTime, Enum as SQLEnum, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base
@@ -63,10 +63,10 @@ class ValidationResult(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     application_id: Mapped[Optional[UUID]] = mapped_column(
-        foreign_key="applications.id", index=True
+        ForeignKey("applications.id"), index=True
     )
     asset_id: Mapped[Optional[UUID]] = mapped_column(
-        foreign_key="assets.id", index=True
+        ForeignKey("assets.id"), index=True
     )
     validation_type: Mapped[ValidationType] = mapped_column(
         SQLEnum(ValidationType), nullable=False, index=True
@@ -78,7 +78,7 @@ class ValidationResult(Base):
         SQLEnum(ValidationErrorCode), index=True
     )
     message: Mapped[Optional[str]] = mapped_column(String(500))
-    details: Mapped[dict] = mapped_column(String, default={})
+    details: Mapped[dict] = mapped_column(JSON, default=dict)
     validated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(UTC), nullable=False
     )

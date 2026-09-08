@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, String
+from sqlalchemy import JSON, Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base
@@ -94,7 +94,7 @@ class Architecture(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     display_name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(String(500))
-    aliases: Mapped[list[str]] = mapped_column(String, default=[])
+    aliases: Mapped[list[str]] = mapped_column(JSON, default=list)
 
     # Relationships
     applications: Mapped[list["Application"]] = relationship(

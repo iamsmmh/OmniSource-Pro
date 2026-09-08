@@ -4,18 +4,16 @@ from datetime import datetime
 from typing import Any, Optional, TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BaseSchema(BaseModel):
     """Base schema with common fields and methods."""
 
-    class Config:
-        from_attributes = True
-        populate_by_name = True
-        json_schema_extra = {
-            "examples": []
-        }
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+    )
 
 
 T = TypeVar('T', bound=BaseSchema)

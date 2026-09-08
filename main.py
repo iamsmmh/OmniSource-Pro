@@ -68,44 +68,46 @@ def run_api(host: Optional[str], port: Optional[int], reload: bool) -> None:
     )
 
 
-@cli.command(name="worker", help="Run the Celery worker")
+@cli.command(name="worker", help="Run the background worker")
 def run_worker() -> None:
-    """Run the Celery worker."""
-    from celery import Celery
-    
-    settings = get_settings()
-    
-    logger.info("Starting Celery worker")
-    
-    # Import the Celery app from automation module
-    # This will be implemented in the automation module
-    from omnisource.automation.worker import app as celery_app
-    
-    celery_app.worker_main([
-        "worker",
-        "--loglevel",
-        settings.LOG_LEVEL.lower(),
-        "--concurrency",
-        str(settings.api.API_WORKERS),
-    ])
+    """Run the background job worker."""
+    import asyncio
+
+    logger.info("Starting OmniSource worker")
+
+    async def _run() -> None:
+        from omnisource.automation.jobs import run_indexing, run_sync, run_validation
+        from omnisource.core.database.session import create_session
+
+        async with create_session() as session:
+            await run_sync(session, source_type="github")
+            await run_validation(session)
+            await run_indexing(session)
+        logger.info("Worker pipeline complete")
+
+    try:
+        asyncio.run(_run())
+    except KeyboardInterrupt:
+        logger.info("Worker stopped")
 
 
-@cli.command(name="scheduler", help="Run the Celery beat scheduler")
+@cli.command(name="scheduler", help="Run the periodic scheduler")
 def run_scheduler() -> None:
-    """Run the Celery beat scheduler."""
-    from celery import Celery
-    
-    settings = get_settings()
-    
-    logger.info("Starting Celery beat scheduler")
-    
-    from omnisource.automation.worker import app as celery_app
-    
-    celery_app.beat_main([
-        "beat",
-        "--loglevel",
-        settings.LOG_LEVEL.lower(),
-    ])
+    """Run the periodic job scheduler."""
+    import asyncio
+
+    from omnisource.automation.scheduler import build_default_scheduler
+
+    logger.info("Starting OmniSource scheduler")
+
+    async def _run() -> None:
+        scheduler = build_default_scheduler()
+        await scheduler.run_forever()
+
+    try:
+        asyncio.run(_run())
+    except KeyboardInterrupt:
+        logger.info("Scheduler stopped")
 
 
 @cli.command(name="bootstrap", help="Initialize the database")
@@ -180,7 +182,7 @@ async def _create_default_data() -> None:
             existing = await session.execute(
                 select(Platform).where(Platform.platform_type == platform_data["platform_type"])
             )
-            if existing.scalar_one() is None:
+            if existing.scalar_one_or_none() is None:
                 platform = Platform(**platform_data)
                 session.add(platform)
         
@@ -199,7 +201,7 @@ async def _create_default_data() -> None:
             existing = await session.execute(
                 select(Architecture).where(Architecture.architecture_type == arch_data["architecture_type"])
             )
-            if existing.scalar_one() is None:
+            if existing.scalar_one_or_none() is None:
                 arch = Architecture(**arch_data)
                 session.add(arch)
         
@@ -208,7 +210,7 @@ async def _create_default_data() -> None:
             existing = await session.execute(
                 select(Category).where(Category.category_type == cat_type.value)
             )
-            if existing.scalar_one() is None:
+            if existing.scalar_one_or_none() is None:
                 category = Category(
                     category_type=cat_type.value,
                     name=cat_info["name"],
@@ -229,7 +231,7 @@ async def _create_default_data() -> None:
             existing = await session.execute(
                 select(Source).where(Source.name == source_data["name"])
             )
-            if existing.scalar_one() is None:
+            if existing.scalar_one_or_none() is None:
                 source = Source(**source_data)
                 session.add(source)
         

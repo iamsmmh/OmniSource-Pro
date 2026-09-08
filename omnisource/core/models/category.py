@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Integer, String, Text
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base
@@ -76,7 +76,7 @@ class Category(Base):
     description: Mapped[Optional[str]] = mapped_column(Text)
     icon: Mapped[Optional[str]] = mapped_column(String(100))
     parent_id: Mapped[Optional[UUID]] = mapped_column(
-        foreign_key="categories.id", index=True
+        ForeignKey("categories.id"), index=True
     )
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
