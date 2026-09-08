@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum as SQLEnum, Float, Integer, String, Text, func
+from sqlalchemy import ForeignKey, Boolean, DateTime, Enum as SQLEnum, Float, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base
@@ -62,6 +62,15 @@ class Application(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_featured: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    developer_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("developers.id"), index=True
+    )
+    organization_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("organizations.id"), index=True
+    )
+    license_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("licenses.id"), index=True
+    )
 
     # Relationships
     repositories: Mapped[list["Repository"]] = relationship(
@@ -139,10 +148,10 @@ class ApplicationRelationship(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     from_app_id: Mapped[UUID] = mapped_column(
-        foreign_key="applications.id", nullable=False, index=True
+        ForeignKey("applications.id"), nullable=False, index=True
     )
     to_app_id: Mapped[UUID] = mapped_column(
-        foreign_key="applications.id", nullable=False, index=True
+        ForeignKey("applications.id"), nullable=False, index=True
     )
     relationship_type: Mapped[ApplicationRelationshipType] = mapped_column(
         SQLEnum(ApplicationRelationshipType), nullable=False, index=True
@@ -161,9 +170,7 @@ class ApplicationRelationship(Base):
 
 
 # Association tables for many-to-many relationships
-application_repositories = """Association table for applications and repositories."""
-
-from sqlalchemy import Table, Column, ForeignKey
+from sqlalchemy import Column, ForeignKey, Table
 
 application_repositories = Table(
     "application_repositories",
@@ -201,3 +208,4 @@ application_tags = Table(
     Column("application_id", ForeignKey("applications.id", ondelete="CASCADE"), primary_key=True),
     Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
 )
+

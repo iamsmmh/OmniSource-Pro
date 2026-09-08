@@ -1,59 +1,47 @@
 """Base model for SQLAlchemy."""
 
-from datetime import datetime, UTC
+from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, func
-from sqlalchemy.orm import DeclarativeBase, declared_attr
+from sqlalchemy import Boolean, DateTime, func
+from sqlalchemy.ext.asyncio import AsyncAttrs
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
-class Base(DeclarativeBase):
+class Base(AsyncAttrs, DeclarativeBase):
     """Base model with common fields and methods."""
 
-    @declared_attr
-    def __tablename__(cls) -> str:
-        """Generate table name from class name."""
-        return cls.__name__.lower()
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
 
-    id: Any = None  # Will be overridden by subclasses
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
-    @declared_attr
-    def created_at(cls) -> Any:
-        """Created timestamp."""
-        return DateTime(timezone=True, server_default=func.now(UTC), nullable=False)
-
-    @declared_attr
-    def updated_at(cls) -> Any:
-        """Updated timestamp."""
-        return DateTime(
-            timezone=True,
-            server_default=func.now(UTC),
-            onupdate=func.now(UTC),
-            nullable=False,
-        )
-
-    @declared_attr
-    def is_deleted(cls) -> Any:
-        """Soft delete flag."""
-        from sqlalchemy import Boolean
-        return Boolean(default=False, nullable=False)
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
 
     def __repr__(self) -> str:
         """String representation of the model."""
         attrs = []
         for column in self.__table__.columns:
-            if column.name != "created_at" and column.name != "updated_at":
+            if column.name not in ("created_at", "updated_at"):
                 attrs.append(f"{column.name}={getattr(self, column.name)!r}")
         return f"{self.__class__.__name__}({', '.join(attrs)})"
 
     def to_dict(self, exclude: set[str] | None = None) -> dict[str, Any]:
         """Convert model to dictionary."""
         exclude = exclude or set()
-        exclude.add("created_at")
-        exclude.add("updated_at")
-        exclude.add("is_deleted")
-        
+        exclude.update({"created_at", "updated_at", "is_deleted"})
+
         result = {}
         for column in self.__table__.columns:
             if column.name not in exclude:
@@ -73,4 +61,4 @@ class UUIDModel(Base):
 
     __abstract__ = True
 
-    id = Any  # Will be overridden with UUID type
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)

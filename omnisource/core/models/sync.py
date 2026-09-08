@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum as SQLEnum, Integer, String, Text, func
+from sqlalchemy import ForeignKey, JSON, Boolean, DateTime, Enum as SQLEnum, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base
@@ -51,10 +51,10 @@ class SyncState(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     source_id: Mapped[Optional[UUID]] = mapped_column(
-        foreign_key="sources.id", index=True
+        ForeignKey("sources.id"), index=True
     )
     repository_id: Mapped[Optional[UUID]] = mapped_column(
-        foreign_key="repositories.id", index=True
+        ForeignKey("repositories.id"), index=True
     )
     cursor: Mapped[Optional[str]] = mapped_column(String(500))
     last_success: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
@@ -92,13 +92,13 @@ class SyncJob(Base):
         SQLEnum(SyncJobStatus), default=SyncJobStatus.PENDING, index=True
     )
     application_id: Mapped[Optional[UUID]] = mapped_column(
-        foreign_key="applications.id", index=True
+        ForeignKey("applications.id"), index=True
     )
     repository_id: Mapped[Optional[UUID]] = mapped_column(
-        foreign_key="repositories.id", index=True
+        ForeignKey("repositories.id"), index=True
     )
     source_id: Mapped[Optional[UUID]] = mapped_column(
-        foreign_key="sources.id", index=True
+        ForeignKey("sources.id"), index=True
     )
     priority: Mapped[int] = mapped_column(Integer, default=0)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -108,7 +108,7 @@ class SyncJob(Base):
     duration_ms: Mapped[Optional[int]] = mapped_column(Integer)
     error_message: Mapped[Optional[str]] = mapped_column(String(1000))
     error_code: Mapped[Optional[str]] = mapped_column(String(100))
-    result: Mapped[dict] = mapped_column(String, default={})
+    result: Mapped[dict] = mapped_column(JSON, default=dict)
     worker_id: Mapped[Optional[str]] = mapped_column(String(255))
     queue_name: Mapped[Optional[str]] = mapped_column(String(100))
     is_locked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

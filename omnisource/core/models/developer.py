@@ -4,7 +4,7 @@ from datetime import datetime, UTC
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import String, Text
+from sqlalchemy import Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base

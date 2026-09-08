@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Enum as SQLEnum, Float, Integer, String, Text, func
+from sqlalchemy import ForeignKey, JSON, BigInteger, Boolean, DateTime, Enum as SQLEnum, Float, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base
@@ -37,7 +37,7 @@ class Repository(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     source_id: Mapped[UUID] = mapped_column(
-        foreign_key="sources.id", nullable=False, index=True
+        ForeignKey("sources.id"), nullable=False, index=True
     )
     external_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
@@ -66,11 +66,13 @@ class Repository(Base):
 
     # Relationships
     source: Mapped[Source] = relationship("Source", back_populates="repositories")
-    metadata: Mapped[Optional["RepositoryMetadata"]] = relationship(
+    metadata_obj: Mapped[Optional["RepositoryMetadata"]] = relationship(
         "RepositoryMetadata", back_populates="repository", uselist=False, cascade="all, delete-orphan"
     )
     applications: Mapped[list["Application"]] = relationship(
-        "Application", back_populates="repositories", cascade="all"
+        "Application",
+        secondary="application_repositories",
+        back_populates="repositories",
     )
     releases: Mapped[list["Release"]] = relationship(
         "Release", back_populates="repository", cascade="all, delete-orphan"
@@ -87,11 +89,11 @@ class RepositoryMetadata(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     repository_id: Mapped[UUID] = mapped_column(
-        foreign_key="repositories.id", nullable=False, unique=True, index=True
+        ForeignKey("repositories.id"), nullable=False, unique=True, index=True
     )
     readme: Mapped[Optional[str]] = mapped_column(Text)
     readme_html: Mapped[Optional[str]] = mapped_column(Text)
-    topics: Mapped[list[str]] = mapped_column(String, default=[])
+    topics: Mapped[list[str]] = mapped_column(JSON, default=list)
     license_spdx: Mapped[Optional[str]] = mapped_column(String(100))
     has_wiki: Mapped[bool] = mapped_column(Boolean, default=False)
     has_issues: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -105,4 +107,4 @@ class RepositoryMetadata(Base):
     last_commit_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     # Relationships
-    repository: Mapped[Repository] = relationship("Repository", back_populates="metadata")
+    repository: Mapped[Repository] = relationship("Repository", back_populates="metadata_obj")

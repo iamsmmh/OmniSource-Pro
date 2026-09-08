@@ -2,7 +2,7 @@
 GitHub connector implementation for OmniSource.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from omnisource.config.settings import get_settings
@@ -59,7 +59,7 @@ class GitHubConnector(SourceConnector):
         self.token = token or get_settings().github.GH_TOKEN
         self.rate_limiter = rate_limiter or RateLimiter(
             max_requests=get_settings().github.GH_RATE_LIMIT,
-            period=datetime.now().replace(hour=0, minute=0, second=0, microsecond=0),
+            period=timedelta(hours=1),
         )
         self.cache = cache or ResponseCache()
         self._client: Optional[GitHubClient] = None
@@ -457,14 +457,13 @@ class GitHubConnector(SourceConnector):
         release: ReleaseSchema,
     ) -> AssetSchema:
         """Convert GitHub asset to AssetSchema."""
-        from omnisource.core.models.platform import normalize_architecture
-        from omnisource.core.models.release import ASSET_RULES, detect_platform
-        
+        from omnisource.core.models.release import detect_platform, detect_architecture
+
         filename = data.get("name", "")
-        
+
         # Detect platform and architecture
         detected_platform = detect_platform(filename)
-        detected_architecture = normalize_architecture(filename)
+        detected_architecture = detect_architecture(filename)
         
         # Map content_type to mime_type
         mime_type = data.get("content_type", "application/octet-stream")

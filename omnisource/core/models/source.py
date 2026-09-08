@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum as SQLEnum, Float, Integer, String, Text, func
+from sqlalchemy import ForeignKey, Boolean, DateTime, Enum as SQLEnum, Float, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base
@@ -68,7 +68,7 @@ class SourceHealth(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     source_id: Mapped[UUID] = mapped_column(
-        foreign_key="sources.id", nullable=False, index=True
+        ForeignKey("sources.id"), nullable=False, index=True
     )
     status: Mapped[SourceHealthStatus] = mapped_column(
         SQLEnum(SourceHealthStatus), nullable=False, index=True
