@@ -34,7 +34,7 @@ class InMemoryRateLimiter:
     def __init__(self) -> None:
         self._hits: dict[str, deque[float]] = defaultdict(deque)
 
-    def check(self, key: str, limit: int, window_seconds: int) -> tuple[bool, int, int]:
+    async def check(self, key: str, limit: int, window_seconds: int) -> tuple[bool, int, int]:
         """Return (allowed, remaining, seconds_until_reset)."""
         now = time.monotonic()
         window_start = now - window_seconds
@@ -84,7 +84,7 @@ class RedisRateLimiter:
             if self._redis_healthy:
                 logger.warning("Redis rate limiter unavailable (%s); using in-memory window", exc)
                 self._redis_healthy = False
-            return self._fallback.check(key, limit, window_seconds)
+            return await self._fallback.check(key, limit, window_seconds)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -105,11 +105,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         identity = self._identity(request)
         window = 60
 
-        if _is_coroutine_function(self._limiter.check):
-            result = await self._limiter.check(identity, limit, window)
-        else:
-            result = self._limiter.check(identity, limit, window)
-        allowed, remaining, reset_in = result
+        allowed, remaining, reset_in = await self._limiter.check(identity, limit, window)
 
         headers = {
             _RATE_LIMIT_HEADER: str(limit),

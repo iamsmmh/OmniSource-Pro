@@ -15,7 +15,7 @@ os_environ = {
 from httpx import ASGITransport, AsyncClient
 
 from omnisource.api.main import app
-from omnisource.api.rate_limit import InMemoryRateLimiter
+from omnisource.api.rate_limit import InMemoryRateLimiter, RedisRateLimiter
 from omnisource.api.routes.webhooks import _verify_github_signature
 from omnisource.api.security import APIKeyAuth
 
@@ -87,19 +87,26 @@ class TestAdminEndpoints:
 
 
 class TestRateLimiting:
-    def test_in_memory_limiter_windows(self):
+    async def test_in_memory_limiter_windows(self):
         limiter = InMemoryRateLimiter()
         # limit 2/window
-        ok1, rem1, _ = limiter.check("k", limit=2, window_seconds=60)
-        ok2, rem2, _ = limiter.check("k", limit=2, window_seconds=60)
-        ok3, rem3, reset = limiter.check("k", limit=2, window_seconds=60)
+        ok1, rem1, _ = await limiter.check("k", limit=2, window_seconds=60)
+        ok2, rem2, _ = await limiter.check("k", limit=2, window_seconds=60)
+        ok3, rem3, reset = await limiter.check("k", limit=2, window_seconds=60)
         assert ok1 and ok2
         assert not ok3
         assert rem3 == 0
         assert reset >= 1
         # other keys unaffected
-        ok_other, _, _ = limiter.check("other", limit=2, window_seconds=60)
+        ok_other, _, _ = await limiter.check("other", limit=2, window_seconds=60)
         assert ok_other
+
+    async def test_redis_limiter_falls_back_offline(self):
+        limiter = RedisRateLimiter("redis://localhost:9999/0")
+        allowed, _, _ = await limiter.check("k", limit=1, window_seconds=60)
+        assert allowed is True
+        allowed2, _, _ = await limiter.check("k", limit=1, window_seconds=60)
+        assert allowed2 is False  # in-memory fallback enforced the limit
 
     async def test_429_when_limit_exceeded(self, client_factory):
         from omnisource.api.main import get_settings
