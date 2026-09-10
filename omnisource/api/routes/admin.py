@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from omnisource.api.dependencies import get_db
 from omnisource.core.models.application import Application
+from omnisource.core.models.notification import WebhookSubscription
 from omnisource.core.models.quarantine import Quarantine, QuarantineStatus
 from omnisource.core.models.repository import Repository
 from omnisource.core.models.source import Source
@@ -172,6 +173,86 @@ async def retry_job(
         }
     )
     return {"status": "requeued", "original_job_id": job_id, "new_job_id": str(new_job.id)}
+
+
+@router.get("/notifications")
+async def list_subscriptions(session: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """Outbound webhook subscriptions."""
+    rows = (
+        (
+            await session.execute(
+                select(WebhookSubscription).order_by(WebhookSubscription.created_at)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return {
+        "subscriptions": [
+            {
+                "id": str(s.id),
+                "url": s.url,
+                "events": s.events,
+                "is_active": s.is_active,
+                "failure_count": s.failure_count,
+                "last_delivery_status": s.last_delivery_status,
+                "last_delivery_at": (
+                    s.last_delivery_at.isoformat() if s.last_delivery_at else None
+                ),
+            }
+            for s in rows
+        ]
+    }
+
+
+@router.post("/notifications")
+async def create_subscription(
+    payload: dict[str, Any], session: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
+    """Register an outbound webhook subscription (secret auto-generated)."""
+    import secrets as _secrets
+
+    from fastapi import HTTPException
+
+    from omnisource.automation.notify import ensure_notification_events_valid
+
+    url = str(payload.get("url", "")).strip()
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=422, detail="url must be an http(s) URL")
+    events = ensure_notification_events_valid(list(payload.get("events", ["*"]) or ["*"]))
+    if not events:
+        raise HTTPException(status_code=422, detail="no valid events provided")
+
+    subscription = WebhookSubscription(
+        url=url,
+        events=events,
+        secret=_secrets.token_urlsafe(32),
+        description=payload.get("description"),
+    )
+    session.add(subscription)
+    await session.commit()
+    return {
+        "id": str(subscription.id),
+        "url": subscription.url,
+        "events": subscription.events,
+        # Only shown once, at creation time.
+        "secret": subscription.secret,
+    }
+
+
+@router.delete("/notifications/{subscription_id}")
+async def delete_subscription(
+    subscription_id: str, session: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
+    """Deactivate a webhook subscription."""
+    from fastapi import HTTPException
+
+    subscription = await session.get(WebhookSubscription, subscription_id)
+    if subscription is None:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    subscription.is_active = False
+    await session.commit()
+    return {"status": "deactivated", "id": subscription_id}
 
 
 # --- HTML dashboard ---------------------------------------------------------------

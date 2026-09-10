@@ -82,6 +82,9 @@ class OmniStoreRelease(BaseModel):
     released_at: str | None = Field(default=None, description="Release date (ISO format)")
     notes: str | None = Field(default=None, description="Release notes")
     assets: list[OmniStoreAsset] = Field(default_factory=list, description="Release assets")
+    has_breaking_changes: bool = Field(
+        default=False, description="Release may break consumers (semver or notes analysis)"
+    )
 
     model_config = ConfigDict(
         json_schema_extra={

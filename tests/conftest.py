@@ -79,12 +79,15 @@ class MockConnector(SourceConnector):
             )
         ], PageInfo(next_cursor="cursor-2", has_next=True)
 
+    pushed_at = datetime.now(UTC)
+
     async def get_repository(self, repository_id, **kwargs):
         return RepositorySchema(
             external_id="123",
             full_name="localsend/localsend",
             name="localsend",
             html_url="https://github.com/localsend/localsend",
+            pushed_at=self.pushed_at,
         )
 
     async def get_releases(self, repository, **kwargs):
@@ -286,3 +289,17 @@ async def seeded_application(session):
     )
     await session.commit()
     return session
+
+
+@pytest_asyncio.fixture
+async def client_factory():
+    """Build an AsyncClient wired to the FastAPI ASGI app."""
+    from httpx import ASGITransport, AsyncClient
+
+    from omnisource.api.main import app
+
+    def _make(headers: dict[str, str] | None = None) -> AsyncClient:
+        transport = ASGITransport(app=app)
+        return AsyncClient(transport=transport, base_url="http://test", headers=headers or {})
+
+    return _make

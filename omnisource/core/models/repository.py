@@ -68,6 +68,9 @@ class Repository(Base):
     created_at_external: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at_external: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     pushed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Delta-sync tracking: pushed_at as of the last successful release sync.
+    last_synced_pushed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Relationships
     source: Mapped[Source] = relationship("Source", back_populates="repositories")

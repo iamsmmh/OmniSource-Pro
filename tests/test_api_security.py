@@ -12,9 +12,7 @@ os_environ = {
     "MEILISEARCH_URL": "",
 }
 
-from httpx import ASGITransport, AsyncClient
 
-from omnisource.api.main import app
 from omnisource.api.rate_limit import InMemoryRateLimiter, RedisRateLimiter
 from omnisource.api.routes.webhooks import _verify_github_signature
 from omnisource.api.security import APIKeyAuth
@@ -35,15 +33,6 @@ def webhook_secret():
     sources.WEBHOOK_SECRET_GITHUB = None
     sources.WEBHOOK_SECRET_GITLAB = None
     sources.WEBHOOK_SECRET_GITEA = None
-
-
-@pytest.fixture()
-def client_factory():
-    def _make(headers: dict[str, str] | None = None) -> AsyncClient:
-        transport = ASGITransport(app=app)
-        return AsyncClient(transport=transport, base_url="http://test", headers=headers or {})
-
-    return _make
 
 
 class TestAPIKeyAuth:

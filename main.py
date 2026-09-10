@@ -240,3 +240,17 @@ async def _create_default_data() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+@cli.command(name="backup", help="Run a database and feeds backup cycle")
+@click.option("--dir", "backup_dir", default=None, help="Backup output directory")
+@click.option("--keep", type=int, default=None, help="Backups to retain per artifact type")
+def backup(backup_dir: Optional[str], keep: Optional[int]) -> None:
+    """Run a backup cycle (database dump + feeds snapshot) and prune old artifacts."""
+    import asyncio
+
+    from omnisource.core.backup import run_backup
+
+    result = asyncio.run(run_backup(backup_dir=backup_dir, keep=keep))
+    click.echo(result)
+

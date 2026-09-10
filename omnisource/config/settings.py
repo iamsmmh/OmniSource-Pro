@@ -17,6 +17,8 @@ class DatabaseSettings(BaseSettings):
         default="postgresql+asyncpg://user:password@localhost:5432/omnisource",
         description="PostgreSQL database URL",
     )
+    BACKUP_DIR: str = Field(default="./data/backups", description="Backup output directory")
+    BACKUP_KEEP: int = Field(default=7, ge=1, description="Backups to retain per artifact type")
     DATABASE_POOL_SIZE: int = Field(default=20, ge=1, le=100)
     DATABASE_MAX_OVERFLOW: int = Field(default=10, ge=0, le=50)
     DATABASE_POOL_TIMEOUT: int = Field(default=30, ge=1, le=300)
@@ -101,6 +103,7 @@ class AISettings(BaseSettings):
     AI_PROVIDER: str | None = Field(default=None)
     AI_API_KEY: str | None = Field(default=None)
     AI_API_URL: str | None = Field(default=None)
+    AI_EMBEDDING_MODEL: str | None = Field(default="text-embedding-3-small")
 
 
 class APISettings(BaseSettings):
@@ -184,6 +187,12 @@ class Settings(BaseSettings):
     # Sync settings
     SYNC_INTERVAL_HOURS: int = Field(default=6, ge=1, le=24)
     VALIDATION_INTERVAL_HOURS: int = Field(default=12, ge=1, le=24)
+    SYNC_SKIP_UNCHANGED: bool = Field(
+        default=True, description="Skip repositories whose pushed_at is unchanged"
+    )
+    SYNC_MAX_AGE_HOURS: int = Field(
+        default=168, ge=1, description="Force a full resync after this many hours"
+    )
 
     @field_validator("APP_ENV")
     @classmethod

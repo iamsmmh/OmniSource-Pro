@@ -105,6 +105,7 @@ ignore = [
 "tests/*" = [
     "S101", # asserts are the point of tests
     "S105", # fake tokens/secrets in tests
+    "S106", # fake secrets as kwargs in tests
     "E402", # settings must be configured before app imports
     "RUF059", # unpacked dummies are fine
 ]

@@ -254,6 +254,9 @@ class Release(Base):
     tarball_url: Mapped[str | None] = mapped_column(String(500))
     zipball_url: Mapped[str | None] = mapped_column(String(500))
     download_count: Mapped[int] = mapped_column(BigInteger, default=0)
+    # Changelog analysis (computed by the sync pipeline)
+    has_breaking_changes: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    breaking_signals: Mapped[list] = mapped_column(JSON, default=list)
 
     # Relationships
     application: Mapped[Application] = relationship("Application", back_populates="releases")

@@ -154,3 +154,178 @@ async def test_feed_generation(seeded_application):
 
     universal = await generator.generate("all")
     assert universal["total"] == 1
+
+
+async def test_delta_sync_skips_unchanged(session, mock_connector):
+    """Repos whose pushed_at is unchanged and freshly synced are skipped."""
+    from datetime import UTC, datetime, timedelta
+
+    source = Source(
+        name="GitHub", source_type=SourceType.GITHUB, base_url="https://github.com", is_active=True
+    )
+    session.add(source)
+    await session.flush()
+
+    now = datetime.now(UTC)
+    repository = Repository(
+        source_id=source.id,
+        external_id="123",
+        full_name="localsend/localsend",
+        name="localsend",
+        html_url="https://github.com/localsend/localsend",
+        pushed_at=now,
+        last_synced_pushed_at=now,
+        synced_at=now - timedelta(hours=1),
+    )
+    session.add(repository)
+    await session.commit()
+
+    with patch("omnisource.crawler.sync.create_connector", return_value=mock_connector):
+        service = RepositorySyncService(session)
+        result = await service.sync_source(source_type="github")
+    await session.commit()
+
+    assert result["skipped_unchanged"] == 1
+    assert result["releases"] == 0
+
+
+async def test_delta_sync_resyncs_when_pushed_at_advances(session, mock_connector):
+    """A newer upstream pushed_at forces a full release sync."""
+    from datetime import UTC, datetime, timedelta
+
+    source = Source(
+        name="GitHub", source_type=SourceType.GITHUB, base_url="https://github.com", is_active=True
+    )
+    session.add(source)
+    await session.flush()
+
+    stale = datetime.now(UTC) - timedelta(days=30)
+    repository = Repository(
+        source_id=source.id,
+        external_id="123",
+        full_name="localsend/localsend",
+        name="localsend",
+        html_url="https://github.com/localsend/localsend",
+        pushed_at=stale,
+        last_synced_pushed_at=stale,
+        synced_at=stale,
+    )
+    session.add(repository)
+    await session.commit()
+
+    with patch("omnisource.crawler.sync.create_connector", return_value=mock_connector):
+        service = RepositorySyncService(session)
+        result = await service.sync_source(source_type="github")
+    await session.commit()
+
+    assert result["skipped_unchanged"] == 0
+    assert result["releases"] == 1
+
+
+async def test_delta_sync_resyncs_stale_repos(session, mock_connector):
+    """max_sync_age_hours forces a refresh even when pushed_at is unchanged."""
+    from datetime import UTC, datetime, timedelta
+
+    from omnisource.crawler.policies import ProcessingPolicies
+
+    source = Source(
+        name="GitHub", source_type=SourceType.GITHUB, base_url="https://github.com", is_active=True
+    )
+    session.add(source)
+    await session.flush()
+
+    month_ago = datetime.now(UTC) - timedelta(days=30)
+    repository = Repository(
+        source_id=source.id,
+        external_id="123",
+        full_name="localsend/localsend",
+        name="localsend",
+        html_url="https://github.com/localsend/localsend",
+        pushed_at=month_ago,
+        last_synced_pushed_at=month_ago,
+        synced_at=month_ago,  # stale beyond max_sync_age_hours
+    )
+    session.add(repository)
+    await session.commit()
+
+    with patch("omnisource.crawler.sync.create_connector", return_value=mock_connector):
+        service = RepositorySyncService(session, policies=ProcessingPolicies(max_sync_age_hours=1))
+        result = await service.sync_source(source_type="github")
+    await session.commit()
+
+    assert result["skipped_unchanged"] == 0
+    assert result["releases"] == 1
+
+
+async def test_sync_flags_breaking_changes(session, mock_connector):
+    """The sync pipeline computes breaking-change flags from versions+notes."""
+    from datetime import UTC, datetime
+
+    from omnisource.core.models.release import Release
+
+    source = Source(
+        name="GitHub", source_type=SourceType.GITHUB, base_url="https://github.com", is_active=True
+    )
+    session.add(source)
+    await session.flush()
+    repository = Repository(
+        source_id=source.id,
+        external_id="123",
+        full_name="localsend/localsend",
+        name="localsend",
+        html_url="https://github.com/localsend/localsend",
+    )
+    session.add(repository)
+    await session.commit()
+
+    from omnisource.core.schemas.asset import AssetSchema, AssetSourceSchema, AssetStatusSchema
+    from omnisource.core.schemas.release import ReleaseSchema, ReleaseStatusSchema
+
+    def _asset(version: str, asset_num: str) -> AssetSchema:
+        return AssetSchema(
+            asset_id=f"gh-{asset_num}",
+            filename=f"localsend-{version}.AppImage",
+            download_url=f"https://example.com/{version}.AppImage",
+            file_type="appimage",
+            detected_platform="linux",
+            package_type="appimage",
+            version=version,
+            source=AssetSourceSchema.GITHUB_RELEASE,
+            status=AssetStatusSchema.PENDING,
+        )
+
+    async def fake_assets(release, **kwargs):
+        return [_asset(release.version, "1" if release.version == "1.0.0" else "2")]
+
+    with (
+        patch.object(
+            mock_connector,
+            "get_releases",
+            return_value=[
+                ReleaseSchema(
+                    external_id="r1",
+                    version="1.0.0",
+                    body="Initial release",
+                    status=ReleaseStatusSchema.RELEASED,
+                    published_at=datetime.now(UTC),
+                    repository_id=repository.id,
+                ),
+                ReleaseSchema(
+                    external_id="r2",
+                    version="2.0.0",
+                    body="BREAKING CHANGE: config file format changed",
+                    status=ReleaseStatusSchema.RELEASED,
+                    published_at=datetime.now(UTC),
+                    repository_id=repository.id,
+                ),
+            ],
+        ),
+        patch.object(mock_connector, "get_assets", side_effect=fake_assets),
+    ):
+        await RepositorySyncService(session).sync_repository(mock_connector, repository)
+    await session.commit()
+
+    releases = {r.version: r for r in (await session.execute(select(Release))).scalars().all()}
+    assert releases["1.0.0"].has_breaking_changes is False
+    assert releases["2.0.0"].has_breaking_changes is True
+    assert "major_version_bump" in releases["2.0.0"].breaking_signals

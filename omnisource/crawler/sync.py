@@ -1,5 +1,6 @@
 """Repository synchronization service: releases, assets, applications."""
 
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -31,11 +32,19 @@ from omnisource.core.schemas.repository import RepositorySchema
 from omnisource.crawler.policies import ProcessingPolicies
 from omnisource.intelligence.scoring import ScoringEngine
 from omnisource.processing.categorization import categorize
+from omnisource.processing.changelog import analyze_release
 from omnisource.processing.deduplication import slugify
 from omnisource.processing.license_engine import normalize_license
 from omnisource.processing.validation.asset_validator import validate_asset
 
 logger = get_logger(__name__)
+
+
+def _naive(value: datetime) -> datetime:
+    """Normalize to naive UTC so aware/naive values compare safely (SQLite)."""
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(UTC).replace(tzinfo=None)
 
 
 class RepositorySyncService:
@@ -73,8 +82,12 @@ class RepositorySyncService:
 
         total_releases = 0
         total_assets = 0
+        skipped = 0
         try:
             for repository in repositories:
+                if self.policies.skip_unchanged and await self._can_skip(connector, repository):
+                    skipped += 1
+                    continue
                 result = await self.sync_repository(connector, repository)
                 total_releases += result["releases"]
                 total_assets += result["assets"]
@@ -85,9 +98,50 @@ class RepositorySyncService:
         return {
             "source": source_type,
             "repositories": len(repositories),
+            "skipped_unchanged": skipped,
             "releases": total_releases,
             "assets": total_assets,
         }
+
+    async def _can_skip(self, connector: SourceConnector, repository: Repository) -> bool:
+        """Delta-sync check: skip repos whose pushed_at is unchanged and fresh.
+
+        Compares the connector's live ``pushed_at`` with
+        ``repository.last_synced_pushed_at``; a repo is skipped only when it
+        has not been pushed since the last successful sync *and* the last
+        sync happened within ``max_sync_age_hours`` (so metadata such as
+        stars/description is still refreshed weekly).
+        """
+        try:
+            fresh = await connector.get_repository(repository.external_id or repository.full_name)
+        except Exception as exc:
+            logger.warning("Delta check failed for %s: %s", repository.full_name, exc)
+            return False
+
+        # Refresh lightweight fields even when skipping the release pipeline.
+        for field in ("stars", "forks", "open_issues", "description"):
+            value = getattr(fresh, field, None)
+            if value is not None and getattr(repository, field, None) != value:
+                setattr(repository, field, value)
+
+        fresh_pushed = fresh.pushed_at
+        unchanged = (
+            fresh_pushed is not None
+            and repository.last_synced_pushed_at is not None
+            and _naive(fresh_pushed) <= _naive(repository.last_synced_pushed_at)
+        )
+        synced_recently = repository.synced_at is not None and _naive(
+            repository.synced_at
+        ) >= _naive(datetime.now(UTC) - timedelta(hours=self.policies.max_sync_age_hours))
+
+        if unchanged and synced_recently:
+            repository.synced_at = datetime.now(UTC)
+            return True
+
+        repository.pushed_at = fresh_pushed
+        repository.last_synced_pushed_at = fresh_pushed
+        repository.synced_at = datetime.now(UTC)
+        return False
 
     async def sync_repository(
         self,
@@ -107,8 +161,15 @@ class RepositorySyncService:
 
         release_repo = ReleaseRepository(self.session)
         asset_count = 0
+        previous_version: str | None = None
         for release_schema in releases[: self.policies.max_releases_per_repo]:
             status_value = getattr(release_schema.status, "value", release_schema.status)
+            changelog = analyze_release(
+                previous_version=previous_version,
+                release_version=release_schema.version,
+                release_notes=release_schema.body,
+            )
+            previous_version = release_schema.version
             release = await release_repo.upsert_release(
                 application_id=app.id,
                 repository_id=repository.id,
@@ -127,6 +188,8 @@ class RepositorySyncService:
                     "tarball_url": release_schema.tarball_url,
                     "zipball_url": release_schema.zipball_url,
                     "download_count": release_schema.download_count,
+                    "has_breaking_changes": changelog["has_breaking_changes"],
+                    "breaking_signals": changelog["signals"],
                 },
             )
 
@@ -137,6 +200,9 @@ class RepositorySyncService:
                 asset_count += 1
 
         await self._compute_scores(app, repository)
+        now = datetime.now(UTC)
+        repository.synced_at = now
+        repository.last_synced_pushed_at = repository.pushed_at or now
         return {"releases": len(releases), "assets": asset_count}
 
     async def _ensure_application(self, repository: Repository) -> Application:

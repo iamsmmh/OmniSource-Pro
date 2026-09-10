@@ -132,6 +132,7 @@ def _to_omnistore_release(release) -> OmniStoreRelease:
         released_at=_iso(getattr(release, "published_at", None)),
         notes=getattr(release, "body", None),
         assets=_to_omnistore_assets(release),
+        has_breaking_changes=bool(getattr(release, "has_breaking_changes", False)),
     )
 
 

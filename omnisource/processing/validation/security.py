@@ -97,3 +97,65 @@ class SecurityScanner:
             "confidence": decision.confidence,
             "quarantine": decision.quarantine,
         }
+
+    async def scan_vulnerabilities(
+        self,
+        packages: list[dict[str, str]],
+    ) -> dict[str, Any]:
+        """Query OSV.dev for known vulnerabilities in the given packages.
+
+        Packages look like ``{"name": "requests", "ecosystem": "PyPI",
+        "version": "2.25.1"}``. Returns a scan summary compatible with
+        ``SecurityScan``-shaped records; degrades to ``error`` status when
+        the advisory service is unreachable.
+        """
+        from omnisource.processing.validation.osv import query_batch, worst_severity
+
+        batch = await query_batch(packages)
+        if batch["status"] != "ok":
+            return {
+                "scan_type": "osv",
+                "scan_status": "unavailable",
+                "vulnerabilities": [],
+                "severity": None,
+                "error": batch.get("error"),
+            }
+
+        vulnerabilities: list[dict[str, Any]] = []
+        for pkg, vulns in zip(packages, batch["results"], strict=False):
+            for vuln in vulns:
+                detail = await get_vuln_detail(vuln["id"]) if vuln.get("id") else None
+                vulnerabilities.append(
+                    {
+                        "id": vuln.get("id"),
+                        "package": pkg.get("name"),
+                        "ecosystem": pkg.get("ecosystem"),
+                        "version": pkg.get("version"),
+                        "severity": worst_severity(detail) if detail else None,
+                    }
+                )
+
+        high_risk = [v for v in vulnerabilities if v.get("severity") in {"high", "critical"}]
+        return {
+            "scan_type": "osv",
+            "scan_status": "flagged" if vulnerabilities else "passed_vulnerability_scan",
+            "vulnerabilities": vulnerabilities,
+            "severity": "high" if high_risk else ("medium" if vulnerabilities else None),
+            "quarantine": bool(high_risk),
+        }
+
+
+async def get_vuln_detail(vuln_id: str) -> dict[str, Any] | None:
+    """Fetch (and cache in-process) an OSV vulnerability detail record."""
+    cached = _VULN_CACHE.get(vuln_id)
+    if cached is not None:
+        return cached
+    from omnisource.processing.validation.osv import get_vuln
+
+    detail = await get_vuln(vuln_id)
+    if detail is not None:
+        _VULN_CACHE[vuln_id] = detail
+    return detail
+
+
+_VULN_CACHE: dict[str, dict[str, Any]] = {}
