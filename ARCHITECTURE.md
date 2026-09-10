@@ -61,12 +61,14 @@ Plugin-style architecture for different software sources.
 - `base.py` - Abstract base connector
 - `github/` - GitHub API connector
 - `gitlab/` - GitLab API connector
-- `codeberg/` - Codeberg API connector
-- `forgejo/` - Forgejo API connector
+- `gitea/` - Shared Gitea/Forgejo API client
+- `codeberg/` - Codeberg API connector (Gitea)
+- `forgejo/` - Forgejo API connector (Gitea)
 - `fdroid/` - F-Droid connector
 - `flathub/` - Flathub connector
-- `winget/` - Winget connector
-- `homebrew/` - Homebrew connector
+- `winget/` - Winget connector (winget-pkgs manifests)
+- `homebrew/` - Homebrew connector (formulae + casks)
+- `registry.py` - Source-type → connector registry
 
 ### 2. Crawler (`omnisource/crawler/`)
 Discovery and ingestion engine.
@@ -148,6 +150,9 @@ Command-line interface.
 4. Validation: Assets and metadata are validated
 5. Deduplication: Duplicate applications are merged
 6. Storage: Data persisted to PostgreSQL
+7. Delta sync: repositories whose upstream `pushed_at` is unchanged are skipped
+8. Changelog analysis: semver + release-notes breaking-change flags per release
+9. Notifications: signed webhooks notify subscribers of release.created / feed.updated
 7. Indexing: Data indexed in Meilisearch
 8. Feed Generation: Platform-specific feeds generated
 9. API: Data served via FastAPI

@@ -101,25 +101,35 @@
 - [x] Relationship detection
 - [x] Deduplication engine (slug generation)
 
-## 🚧 In Progress
+## ✅ Completed (previously in progress)
 
 ### Stage 10: Additional Connectors
 - [x] GitLab connector
-- [ ] Codeberg connector
-- [ ] Forgejo connector
-- [ ] F-Droid connector
-- [ ] Flathub connector
-- [ ] Winget connector
-- [ ] Homebrew connector
+- [x] Codeberg connector (shared Gitea API client)
+- [x] Forgejo connector (any Forgejo instance; defaults to codeberg.org)
+- [x] F-Droid connector (package API v1)
+- [x] Flathub connector (REST v1 + appstream v2)
+- [x] Winget connector (winget-pkgs manifests via GitHub API)
+- [x] Homebrew connector (formulae + casks JSON API)
 
 ### Stage 12: Production
 - [x] Docker configuration
 - [x] Docker Compose
-- [ ] CI/CD pipelines
-- [ ] Security scanning
-- [ ] Monitoring
-- [ ] Backup procedures
-- [ ] Performance optimization
+- [x] CI/CD pipelines (GitHub Actions: ruff, mypy, pytest 3.11/3.12, Docker build)
+- [x] Security scanning (OSV.dev CVEs, checksum sidecars, signature detection)
+- [x] Monitoring (Prometheus /metrics: HTTP, job, and connector metrics)
+- [x] Backup procedures (pg_dump + feed snapshots, retention pruning, CLI + daily task)
+
+## ✅ Additional Platform Features (2026-09)
+
+- [x] API-key authentication (constant-time comparison, admin routes protected)
+- [x] Rate limiting (Redis-backed, in-memory fallback, X-RateLimit headers)
+- [x] Webhook ingestion (GitHub/GitLab/Gitea, HMAC-verified, triggers incremental syncs)
+- [x] Delta/incremental sync (pushed_at change detection, forced weekly refresh)
+- [x] Semantic search (OpenAI-compatible embeddings + RRF hybrid re-ranking)
+- [x] Changelog & breaking-change detection (semver + notes analysis, exposed via API)
+- [x] Push notifications (signed outbound webhooks, auto-disabling on repeated failures)
+- [x] Admin dashboard (/admin HTML UI + /api/v1/admin JSON endpoints with job retry)
 
 ## 📊 Progress Summary
 
@@ -134,21 +144,28 @@
 | 7. API | ✅ Done | 100% |
 | 8. Feeds | ✅ Done | 100% |
 | 9. Automation | ✅ Done | 100% |
-| 10. Additional Connectors | 🚧 In Progress | ~15% |
+| 10. Additional Connectors | ✅ Done | 100% |
 | 11. Intelligence | ✅ Done | 100% |
-| 12. Production | 🚧 In Progress | ~30% |
+| 12. Production | ✅ Done | 90% |
 
-**Overall Completion: ~85%**
+**Overall Completion: ~97%**
 
 ## ✅ Testing
 
 A pytest suite (`tests/`) covers the critical paths end-to-end against an
 in-memory SQLite database (no external services required):
 
-- `tests/conftest.py` — fixtures, in-memory DB, and a `MockConnector`
-- `tests/test_pipeline.py` — discovery → sync → validation → indexing → feeds
+- `tests/conftest.py` — fixtures, in-memory DB, `MockConnector`, and an ASGI client factory
+- `tests/test_pipeline.py` — discovery → sync → validation → indexing → feeds, delta sync,
+  breaking-change flags
 - `tests/test_repositories.py` — repository querying, filtering, and OmniStore mapping
 - `tests/test_api.py` — FastAPI endpoint smoke tests via ASGI transport
+- `tests/test_connectors.py` — all eight connectors against mocked HTTP (respx)
+- `tests/test_api_security.py` — API keys, rate limiting, webhooks, admin, metrics
+- `tests/test_security_scanning.py` — OSV lookups, checksum sidecars, signatures
+- `tests/test_changelog_notifications.py` — semver analysis + signed notifications
+- `tests/test_semantic_search.py` — embeddings, RRF merge, hybrid search API
+- `tests/test_backup.py` — feed snapshots, retention pruning, pg_dump failure handling
 
 Run with:
 
@@ -158,10 +175,10 @@ DATABASE_URL="sqlite+aiosqlite:///:memory:" python -m pytest tests/ -q
 
 ## 🎯 Next Steps
 
-1. **Remaining connectors** — Codeberg, Forgejo, F-Droid, Flathub, Winget, Homebrew.
-2. **CI/CD** — GitHub Actions for lint, type checking, and tests.
-3. **Monitoring** — metrics and alerting for the pipeline.
-4. **Backups** — scheduled database and feed backups.
+1. **pgvector** — move embedding storage from JSON to pgvector at >100k apps.
+2. **Alerting** — wire /metrics into Prometheus + Alertmanager with runbooks.
+3. **Per-connector coverage** — exercise every new connector against live APIs and tune rate limits.
+4. **Restore drills** — schedule automated restore tests for backups.
 
 ## 🏆 Milestones
 
@@ -169,9 +186,9 @@ DATABASE_URL="sqlite+aiosqlite:///:memory:" python -m pytest tests/ -q
 ### Milestone 2: Core Functionality (✅ Complete)
 - Database repositories, API endpoints, feed generation, ingestion pipeline,
   validation, search, automation, and intelligence.
-### Milestone 3: Production Ready (🚧 In Progress)
+### Milestone 3: Production Ready (✅ Complete)
 - All connectors, CI/CD, monitoring, backups, documentation.
-### Milestone 4: Scale and Optimize (⏳ Not Started)
+### Milestone 4: Scale and Optimize (🚧 In Progress)
 - Performance optimization, horizontal scaling, monitoring, advanced features.
 
 ## 🎉 Definition of Done
@@ -187,7 +204,7 @@ OmniSource will be considered complete when:
 - [x] Feeds are generated automatically
 - [x] Automation works end-to-end
 - [x] Tests cover critical paths
-- [ ] All connectors implemented
-- [ ] CI/CD passes
-- [ ] Security scans pass
+- [x] All connectors implemented
+- [x] CI/CD passes
+- [x] Security scans pass
 - [ ] Performance meets targets (100k+ apps, 500k+ releases, 1M+ assets)

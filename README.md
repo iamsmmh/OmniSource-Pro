@@ -152,6 +152,16 @@ API_DEBUG=true
 | GET | `/api/v1/trending` | Get trending applications |
 | GET | `/api/v1/latest` | Get latest applications |
 | GET | `/api/v1/stats` | Get statistics |
+| GET | `/api/v1/search?semantic=true` | Hybrid search (keyword + embeddings) |
+| POST | `/api/v1/webhooks/github` | GitHub webhook ingestion (HMAC-verified) |
+| POST | `/api/v1/webhooks/gitlab` | GitLab webhook ingestion |
+| POST | `/api/v1/webhooks/gitea` | Gitea/Forgejo/Codeberg webhook ingestion |
+| GET | `/api/v1/admin/overview` | Pipeline overview (API key required) |
+| GET | `/api/v1/admin/jobs` | Recent sync jobs (API key required) |
+| GET | `/api/v1/admin/quarantine` | Quarantine review queue (API key required) |
+| POST | `/api/v1/admin/jobs/{id}/retry` | Retry a failed job (API key required) |
+| GET/POST/DELETE | `/api/v1/admin/notifications` | Outbound webhook subscriptions (API key required) |
+| GET | `/admin` | Admin dashboard UI |
 
 ### Health Endpoints
 
@@ -161,6 +171,7 @@ API_DEBUG=true
 | GET | `/health/live` | Liveness probe |
 | GET | `/health/ready` | Readiness probe |
 | GET | `/health/sources` | Source health status |
+| GET | `/metrics` | Prometheus metrics |
 
 ### Feed Endpoints
 
@@ -178,26 +189,33 @@ API_DEBUG=true
 ### ✅ Implemented
 
 - **Database Models**: Complete SQLAlchemy 2.x models for all entities
-- **GitHub Connector**: Full GitHub API integration with rate limiting and caching
+- **Connectors**: GitHub, GitLab, Codeberg, Forgejo, F-Droid, Flathub, Winget, Homebrew
 - **Configuration**: Pydantic-based settings with environment variable support
 - **API Framework**: FastAPI with OpenAPI documentation
 - **Logging**: Structured JSON logging with configurable levels
 - **Docker Support**: Production-ready Docker images and Compose configuration
 - **CLI**: Command-line interface for management tasks
-
-### 🚧 In Development
-
-- **Additional Connectors**: GitLab, Codeberg, Forgejo, F-Droid, Flathub, Winget, Homebrew
 - **Processing Pipeline**: Metadata extraction, platform detection, validation
-- **Search Integration**: Meilisearch indexing and querying
+- **Search Integration**: Meilisearch indexing plus optional semantic re-ranking
 - **Feed Generation**: Platform-specific feed generation
-- **Automation**: Celery-based job queue and scheduling
+- **Automation**: Celery-or-in-process job queue and scheduling
 - **Intelligence**: Trust scoring, quality scoring, categorization
+- **API Security**: API-key auth (constant-time compare) on admin routes
+- **Rate Limiting**: Redis-backed limiter with in-memory fallback, standard headers
+- **Webhook Ingestion**: HMAC-verified GitHub/GitLab/Gitea webhooks trigger incremental syncs
+- **Push Notifications**: Signed outbound webhooks (release.created, feed.updated, ...)
+- **Security Scanning**: OSV.dev vulnerability checks, checksum sidecars, signature detection
+- **Delta Sync**: `pushed_at`-based skip logic with weekly forced refresh
+- **Changelog Analysis**: semver + release-notes breaking-change detection per release
+- **Admin Dashboard**: dependency-free HTML UI at `/admin` (jobs, quarantine, sources, retries)
+- **Observability**: Prometheus `/metrics` (HTTP, jobs, connectors)
+- **Backups**: `omnisource backup` — pg_dump + feed snapshots with retention pruning
+- **CI/CD**: GitHub Actions (ruff, mypy, pytest matrix, Docker build)
 
 ### 📋 Planned
 
 - **Advanced Deduplication**: ML-based duplicate detection
-- **Security Scanning**: Malware and vulnerability detection
+- **pgvector Storage**: swap JSON embeddings for pgvector at >100k apps
 - **AI Enhancement**: Optional AI-powered metadata improvement
 - **Monitoring**: Prometheus metrics and Grafana dashboards
 - **Scaling**: Horizontal scaling and load balancing
