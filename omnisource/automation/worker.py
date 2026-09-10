@@ -3,8 +3,7 @@
 import asyncio
 import os
 import uuid as uuid_mod
-from datetime import datetime, UTC
-from typing import Any, Dict, Optional
+from typing import Any
 
 from omnisource.automation.jobs import JOB_HANDLERS
 from omnisource.automation.queue import InProcessJobQueue, JobQueue
@@ -19,8 +18,8 @@ class AsyncWorker:
 
     def __init__(
         self,
-        queue: Optional[JobQueue] = None,
-        worker_id: Optional[str] = None,
+        queue: JobQueue | None = None,
+        worker_id: str | None = None,
         poll_interval: float = 1.0,
     ):
         self.queue = queue or InProcessJobQueue()
@@ -28,9 +27,9 @@ class AsyncWorker:
         self.poll_interval = poll_interval
         self._running = False
 
-    async def process_job(self, job: Dict[str, Any]) -> Any:
+    async def process_job(self, job: dict[str, Any]) -> Any:
         """Execute a single job and return its result."""
-        job_type = job.get("type") or job.get("job_type")
+        job_type = str(job.get("type") or job.get("job_type") or "")
         handler = JOB_HANDLERS.get(job_type)
         if handler is None:
             logger.warning("No handler registered for job type: %s", job_type)
@@ -49,7 +48,7 @@ class AsyncWorker:
                 job = await self.queue.dequeue()
                 try:
                     await self.process_job(job)
-                except Exception as exc:  # noqa: BLE001 - worker must survive
+                except Exception as exc:
                     logger.error(
                         "Job %s failed: %s",
                         job.get("type", job.get("job_type", "unknown")),
@@ -67,10 +66,11 @@ class AsyncWorker:
 
 # --- Celery integration (optional) -------------------------------------
 
+
 def get_celery_app():
     """Return a Celery app if celery is installed, else None."""
     try:
-        from celery import Celery  # noqa: PLC0415 - lazy import
+        from celery import Celery
 
         from omnisource.config.settings import get_settings
 
@@ -88,4 +88,4 @@ def get_celery_app():
 app = None
 
 
-__all__ = ["AsyncWorker", "get_celery_app", "app"]
+__all__ = ["AsyncWorker", "app", "get_celery_app"]

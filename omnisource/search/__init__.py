@@ -1,12 +1,12 @@
 """Search functionality for OmniSource."""
 
 from omnisource.search.indexer import NullSearchIndexer, SearchIndexer, get_indexer
-from omnisource.search.query import build_filter_string, SearchQuery
+from omnisource.search.query import SearchQuery, build_filter_string
 
 __all__ = [
-    "SearchIndexer",
     "NullSearchIndexer",
-    "get_indexer",
-    "build_filter_string",
+    "SearchIndexer",
     "SearchQuery",
+    "build_filter_string",
+    "get_indexer",
 ]

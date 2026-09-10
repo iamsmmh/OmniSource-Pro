@@ -5,7 +5,6 @@ Uses Pydantic Settings with environment variable support.
 """
 
 from functools import lru_cache
-from typing import List, Optional
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -49,7 +48,7 @@ class MeilisearchSettings(BaseSettings):
         default="http://localhost:7700",
         description="Meilisearch server URL",
     )
-    MEILISEARCH_MASTER_KEY: Optional[str] = Field(
+    MEILISEARCH_MASTER_KEY: str | None = Field(
         default=None,
         description="Meilisearch master key (optional for development)",
     )
@@ -62,7 +61,7 @@ class MeilisearchSettings(BaseSettings):
 class GitHubSettings(BaseSettings):
     """GitHub API configuration."""
 
-    GH_TOKEN: Optional[str] = Field(
+    GH_TOKEN: str | None = Field(
         default=None,
         description="GitHub personal access token",
     )
@@ -74,8 +73,8 @@ class GitHubSettings(BaseSettings):
 class SourceSettings(BaseSettings):
     """External source configuration."""
 
-    GITLAB_TOKEN: Optional[str] = Field(default=None)
-    CODEBERG_TOKEN: Optional[str] = Field(default=None)
+    GITLAB_TOKEN: str | None = Field(default=None)
+    CODEBERG_TOKEN: str | None = Field(default=None)
     FDROID_API_URL: str = Field(default="https://f-droid.org/api/v1")
     FLATHUB_API_URL: str = Field(default="https://flathub.org/api/v1")
 
@@ -83,31 +82,31 @@ class SourceSettings(BaseSettings):
 class S3Settings(BaseSettings):
     """S3-compatible storage configuration for feeds."""
 
-    S3_ENDPOINT: Optional[str] = Field(default=None)
-    S3_BUCKET: Optional[str] = Field(default=None)
-    S3_ACCESS_KEY: Optional[str] = Field(default=None)
-    S3_SECRET_KEY: Optional[str] = Field(default=None)
-    S3_REGION: Optional[str] = Field(default=None)
+    S3_ENDPOINT: str | None = Field(default=None)
+    S3_BUCKET: str | None = Field(default=None)
+    S3_ACCESS_KEY: str | None = Field(default=None)
+    S3_SECRET_KEY: str | None = Field(default=None)
+    S3_REGION: str | None = Field(default=None)
     S3_FEEDS_PREFIX: str = Field(default="feeds")
 
 
 class AISettings(BaseSettings):
     """AI provider configuration (optional)."""
 
-    AI_PROVIDER: Optional[str] = Field(default=None)
-    AI_API_KEY: Optional[str] = Field(default=None)
-    AI_API_URL: Optional[str] = Field(default=None)
+    AI_PROVIDER: str | None = Field(default=None)
+    AI_API_KEY: str | None = Field(default=None)
+    AI_API_URL: str | None = Field(default=None)
 
 
 class APISettings(BaseSettings):
     """API server configuration."""
 
-    API_HOST: str = Field(default="0.0.0.0")
+    API_HOST: str = Field(default="0.0.0.0")  # noqa: S104 - server binds all interfaces by design
     API_PORT: int = Field(default=8000, ge=1, le=65535)
     API_DEBUG: bool = Field(default=False)
     API_WORKERS: int = Field(default=4, ge=1, le=100)
     API_RATE_LIMIT: int = Field(default=100, ge=1, description="Requests per minute")
-    API_CORS_ORIGINS: List[str] = Field(
+    API_CORS_ORIGINS: list[str] = Field(
         default=["*"],
         description="CORS allowed origins",
     )
@@ -182,7 +181,7 @@ class Settings(BaseSettings):
         return v.lower()
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance."""
     return Settings()

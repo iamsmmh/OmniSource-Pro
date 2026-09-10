@@ -7,9 +7,9 @@ from omnisource.intelligence.scoring import ScoringEngine
 from omnisource.intelligence.trust_scoring import compute_trust
 
 __all__ = [
+    "RelationshipDetector",
+    "ScoringEngine",
     "compute_popularity",
     "compute_quality",
     "compute_trust",
-    "RelationshipDetector",
-    "ScoringEngine",
 ]

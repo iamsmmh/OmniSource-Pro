@@ -1,7 +1,7 @@
 """Metadata extraction from raw repository data."""
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from omnisource.processing.license_engine import normalize_license
 
@@ -9,7 +9,7 @@ from omnisource.processing.license_engine import normalize_license
 _URL_PATTERN = re.compile(r"https?://[^\s)\]]+")
 
 
-def extract_description(data: Dict[str, Any]) -> Optional[str]:
+def extract_description(data: dict[str, Any]) -> str | None:
     """Extract a clean description from repository data."""
     description = data.get("description")
     if isinstance(description, str):
@@ -18,7 +18,7 @@ def extract_description(data: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def extract_topics(data: Dict[str, Any]) -> List[str]:
+def extract_topics(data: dict[str, Any]) -> list[str]:
     """Extract topics from repository data (handles list and dict forms)."""
     topics = data.get("topics", [])
     if isinstance(topics, dict):
@@ -28,7 +28,7 @@ def extract_topics(data: Dict[str, Any]) -> List[str]:
     return [str(t).strip().lower() for t in topics if t][:50]
 
 
-def extract_license_spdx(data: Dict[str, Any]) -> Optional[str]:
+def extract_license_spdx(data: dict[str, Any]) -> str | None:
     """Extract a normalized SPDX license identifier from repository data."""
     license_data = data.get("license")
     if isinstance(license_data, dict):
@@ -39,7 +39,7 @@ def extract_license_spdx(data: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def extract_homepage(data: Dict[str, Any]) -> Optional[str]:
+def extract_homepage(data: dict[str, Any]) -> str | None:
     """Extract homepage URL, preferring a real homepage over the repo URL."""
     homepage = data.get("homepage")
     if isinstance(homepage, str) and homepage.strip():
@@ -47,7 +47,7 @@ def extract_homepage(data: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def extract_documentation_url(data: Dict[str, Any]) -> Optional[str]:
+def extract_documentation_url(data: dict[str, Any]) -> str | None:
     """Attempt to derive a documentation URL from the repository data."""
     docs = data.get("documentation_url")
     if docs:
@@ -58,27 +58,27 @@ def extract_documentation_url(data: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def extract_urls(text: Optional[str]) -> List[str]:
+def extract_urls(text: str | None) -> list[str]:
     """Extract URLs from a text blob."""
     if not text:
         return []
     return list(dict.fromkeys(_URL_PATTERN.findall(text)))
 
 
-def extract_languages(data: Dict[str, Any]) -> List[str]:
+def extract_languages(data: dict[str, Any]) -> list[str]:
     """Extract language names from repository data."""
     languages = data.get("languages", {})
     if isinstance(languages, dict):
         return sorted(languages.keys(), key=lambda k: -(languages[k] or 0))
     if isinstance(languages, list):
-        return [str(l) for l in languages]
+        return [str(lang) for lang in languages]
     return []
 
 
 class MetadataExtractor:
     """Extracts structured metadata from raw source data."""
 
-    def extract(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def extract(self, data: dict[str, Any]) -> dict[str, Any]:
         """Extract all supported metadata fields into a flat dictionary."""
         return {
             "description": extract_description(data),

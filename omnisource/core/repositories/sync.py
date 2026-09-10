@@ -1,11 +1,9 @@
 """Sync state and job repository for OmniSource."""
 
-from datetime import datetime, UTC
-from typing import List, Optional
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from omnisource.core.models.sync import (
     SyncJob,
@@ -25,9 +23,9 @@ class SyncRepository(BaseRepository[SyncJob]):
 
     async def get_sync_state(
         self,
-        source_id: Optional[UUID] = None,
-        repository_id: Optional[UUID] = None,
-    ) -> Optional[SyncState]:
+        source_id: UUID | None = None,
+        repository_id: UUID | None = None,
+    ) -> SyncState | None:
         """Get sync state for a source and/or repository."""
         result = await self.session.execute(
             select(SyncState).where(
@@ -39,8 +37,8 @@ class SyncRepository(BaseRepository[SyncJob]):
 
     async def get_or_create_sync_state(
         self,
-        source_id: Optional[UUID] = None,
-        repository_id: Optional[UUID] = None,
+        source_id: UUID | None = None,
+        repository_id: UUID | None = None,
     ) -> SyncState:
         """Get or create sync state for a source and/or repository."""
         state = await self.get_sync_state(source_id, repository_id)
@@ -67,9 +65,9 @@ class SyncRepository(BaseRepository[SyncJob]):
     async def create_job(
         self,
         job_type: SyncJobType | str,
-        source_id: Optional[UUID] = None,
-        repository_id: Optional[UUID] = None,
-        application_id: Optional[UUID] = None,
+        source_id: UUID | None = None,
+        repository_id: UUID | None = None,
+        application_id: UUID | None = None,
         priority: int = 0,
         **extra,
     ) -> SyncJob:
@@ -90,14 +88,12 @@ class SyncRepository(BaseRepository[SyncJob]):
         await self.session.flush()
         return job
 
-    async def get_job(self, job_id: str) -> Optional[SyncJob]:
+    async def get_job(self, job_id: str) -> SyncJob | None:
         """Get a job by job_id string."""
-        result = await self.session.execute(
-            select(SyncJob).where(SyncJob.job_id == job_id)
-        )
+        result = await self.session.execute(select(SyncJob).where(SyncJob.job_id == job_id))
         return result.scalar_one_or_none()
 
-    async def list_pending_jobs(self, limit: int = 50) -> List[SyncJob]:
+    async def list_pending_jobs(self, limit: int = 50) -> list[SyncJob]:
         """List pending jobs ordered by priority (desc) and creation time."""
         result = await self.session.execute(
             select(SyncJob)
@@ -118,9 +114,7 @@ class SyncRepository(BaseRepository[SyncJob]):
         await self.session.flush()
         return job
 
-    async def mark_completed(
-        self, job: SyncJob, result: Optional[dict] = None
-    ) -> SyncJob:
+    async def mark_completed(self, job: SyncJob, result: dict | None = None) -> SyncJob:
         """Mark a job as completed."""
         job.status = SyncJobStatus.COMPLETED
         job.completed_at = datetime.now(UTC)
@@ -128,14 +122,12 @@ class SyncRepository(BaseRepository[SyncJob]):
         if result is not None:
             job.result = result
         if job.started_at is not None:
-            job.duration_ms = int(
-                (job.completed_at - job.started_at).total_seconds() * 1000
-            )
+            job.duration_ms = int((job.completed_at - job.started_at).total_seconds() * 1000)
         await self.session.flush()
         return job
 
     async def mark_failed(
-        self, job: SyncJob, error_message: str, error_code: Optional[str] = None
+        self, job: SyncJob, error_message: str, error_code: str | None = None
     ) -> SyncJob:
         """Mark a job as failed (or retrying if retries remain)."""
         job.retry_count += 1

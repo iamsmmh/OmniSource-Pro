@@ -1,7 +1,7 @@
 """Base Pydantic schemas for OmniSource."""
 
 from datetime import datetime
-from typing import Any, Optional, TypeVar
+from typing import TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -16,7 +16,7 @@ class BaseSchema(BaseModel):
     )
 
 
-T = TypeVar('T', bound=BaseSchema)
+T = TypeVar("T", bound=BaseSchema)
 
 
 class UUIDSchema(BaseSchema):

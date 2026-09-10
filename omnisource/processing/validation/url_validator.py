@@ -2,7 +2,6 @@
 
 import re
 from dataclasses import dataclass, field
-from typing import List, Optional
 from urllib.parse import urlparse
 
 # Hostnames that must never be contacted during validation (SSRF guard).
@@ -23,9 +22,9 @@ class URLValidationResult:
     """Result of a URL validation."""
 
     valid: bool
-    reason: Optional[str] = None
-    url: Optional[str] = None
-    errors: List[str] = field(default_factory=list)
+    reason: str | None = None
+    url: str | None = None
+    errors: list[str] = field(default_factory=list)
 
     @property
     def is_valid(self) -> bool:
@@ -62,9 +61,7 @@ def validate_url(url: str, allow_private: bool = False) -> URLValidationResult:
 
     hostname = (parsed.hostname or "").lower()
     if not hostname:
-        return URLValidationResult(
-            valid=False, url=url, reason="host", errors=["Missing hostname"]
-        )
+        return URLValidationResult(valid=False, url=url, reason="host", errors=["Missing hostname"])
 
     if not allow_private and _is_private_host(hostname):
         return URLValidationResult(

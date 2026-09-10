@@ -1,6 +1,7 @@
 """Base repository with common CRUD operations."""
 
-from typing import Any, Dict, Generic, List, Optional, Sequence, Type, TypeVar
+from collections.abc import Sequence
+from typing import Any, Generic, TypeVar
 from uuid import UUID
 
 from sqlalchemy import Select, func, select
@@ -12,19 +13,19 @@ ModelT = TypeVar("ModelT")
 class BaseRepository(Generic[ModelT]):
     """Generic asynchronous repository providing common database operations."""
 
-    model: Type[ModelT]
+    model: type[ModelT]
 
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get(self, id: UUID) -> Optional[ModelT]:
+    async def get(self, id: UUID) -> ModelT | None:
         """Get a single record by primary key."""
         result = await self.session.execute(
-            select(self.model).where(self.model.id == id)
+            select(self.model).where(getattr(self.model, "id") == id)  # noqa: B009 - ModelT has no static attr
         )
         return result.scalar_one_or_none()
 
-    async def get_by(self, **kwargs: Any) -> Optional[ModelT]:
+    async def get_by(self, **kwargs: Any) -> ModelT | None:
         """Get a single record by arbitrary column filters."""
         query = select(self.model)
         for key, value in kwargs.items():
@@ -35,9 +36,9 @@ class BaseRepository(Generic[ModelT]):
     async def list(
         self,
         *filters: Any,
-        order_by: Optional[Any] = None,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
+        order_by: Any | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> Sequence[ModelT]:
         """List records with optional filtering, ordering, and pagination."""
         query = select(self.model)
@@ -88,8 +89,8 @@ class BaseRepository(Generic[ModelT]):
 
     async def upsert_by(
         self,
-        match_fields: Dict[str, Any],
-        values: Dict[str, Any],
+        match_fields: dict[str, Any],
+        values: dict[str, Any],
     ) -> ModelT:
         """Get an existing record or create a new one."""
         instance = await self.get_by(**match_fields)

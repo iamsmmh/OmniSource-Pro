@@ -1,7 +1,7 @@
 """Asset validation job."""
 
-from datetime import datetime, UTC
-from typing import Any, Dict
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,15 +17,11 @@ async def run_validation(
     session: AsyncSession,
     limit: int = 500,
     **kwargs: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Re-validate assets that are pending, stale, or failed."""
     result = await session.execute(
         select(Asset)
-        .where(
-            Asset.status.in_(
-                [AssetStatus.PENDING, AssetStatus.STALE, AssetStatus.FAILED]
-            )
-        )
+        .where(Asset.status.in_([AssetStatus.PENDING, AssetStatus.STALE, AssetStatus.FAILED]))
         .limit(limit)
     )
     assets = result.scalars().all()
@@ -44,9 +40,7 @@ async def run_validation(
         )
         asset.status = AssetStatus(outcome.status)
         asset.validation_status = outcome.status
-        asset.validation_message = (
-            "; ".join(outcome.errors + outcome.warnings)[:500] or None
-        )
+        asset.validation_message = "; ".join(outcome.errors + outcome.warnings)[:500] or None
         asset.last_validated_at = datetime.now(UTC)
         validated += 1
 

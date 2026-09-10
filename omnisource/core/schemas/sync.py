@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import ConfigDict, Field
@@ -45,21 +45,21 @@ class SyncStateSchema(BaseSchema):
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
-    id: Optional[UUID] = Field(default=None, description="Unique identifier")
-    source_id: Optional[UUID] = Field(default=None, description="Source identifier")
-    repository_id: Optional[UUID] = Field(default=None, description="Repository identifier")
-    cursor: Optional[str] = Field(default=None, description="Pagination cursor")
-    last_success: Optional[datetime] = Field(default=None, description="Last success")
-    last_attempt: Optional[datetime] = Field(default=None, description="Last attempt")
-    last_error: Optional[str] = Field(default=None, description="Last error")
-    etag: Optional[str] = Field(default=None, description="ETag")
-    last_etag: Optional[str] = Field(default=None, description="Last ETag")
+    id: UUID | None = Field(default=None, description="Unique identifier")
+    source_id: UUID | None = Field(default=None, description="Source identifier")
+    repository_id: UUID | None = Field(default=None, description="Repository identifier")
+    cursor: str | None = Field(default=None, description="Pagination cursor")
+    last_success: datetime | None = Field(default=None, description="Last success")
+    last_attempt: datetime | None = Field(default=None, description="Last attempt")
+    last_error: str | None = Field(default=None, description="Last error")
+    etag: str | None = Field(default=None, description="ETag")
+    last_etag: str | None = Field(default=None, description="Last ETag")
     request_count: int = Field(default=0, description="Request count")
     discovered_count: int = Field(default=0, description="Discovered count")
     updated_count: int = Field(default=0, description="Updated count")
     failed_count: int = Field(default=0, description="Failed count")
-    rate_limit_remaining: Optional[int] = Field(default=None, description="Rate limit remaining")
-    rate_limit_reset: Optional[datetime] = Field(default=None, description="Rate limit reset")
+    rate_limit_remaining: int | None = Field(default=None, description="Rate limit remaining")
+    rate_limit_reset: datetime | None = Field(default=None, description="Rate limit reset")
 
 
 class SyncJobSchema(BaseSchema):
@@ -67,24 +67,24 @@ class SyncJobSchema(BaseSchema):
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
-    id: Optional[UUID] = Field(default=None, description="Unique identifier")
+    id: UUID | None = Field(default=None, description="Unique identifier")
     job_id: str = Field(..., description="Job identifier")
     job_type: str = Field(..., description="Job type")
     status: str = Field(default="pending", description="Status")
-    application_id: Optional[UUID] = Field(default=None, description="Application identifier")
-    repository_id: Optional[UUID] = Field(default=None, description="Repository identifier")
-    source_id: Optional[UUID] = Field(default=None, description="Source identifier")
+    application_id: UUID | None = Field(default=None, description="Application identifier")
+    repository_id: UUID | None = Field(default=None, description="Repository identifier")
+    source_id: UUID | None = Field(default=None, description="Source identifier")
     priority: int = Field(default=0, description="Priority")
     retry_count: int = Field(default=0, description="Retry count")
     max_retries: int = Field(default=3, description="Max retries")
-    started_at: Optional[datetime] = Field(default=None, description="Started at")
-    completed_at: Optional[datetime] = Field(default=None, description="Completed at")
-    duration_ms: Optional[int] = Field(default=None, description="Duration in ms")
-    error_message: Optional[str] = Field(default=None, description="Error message")
-    error_code: Optional[str] = Field(default=None, description="Error code")
-    result: Dict[str, Any] = Field(default_factory=dict, description="Result")
-    worker_id: Optional[str] = Field(default=None, description="Worker identifier")
-    queue_name: Optional[str] = Field(default=None, description="Queue name")
+    started_at: datetime | None = Field(default=None, description="Started at")
+    completed_at: datetime | None = Field(default=None, description="Completed at")
+    duration_ms: int | None = Field(default=None, description="Duration in ms")
+    error_message: str | None = Field(default=None, description="Error message")
+    error_code: str | None = Field(default=None, description="Error code")
+    result: dict[str, Any] = Field(default_factory=dict, description="Result")
+    worker_id: str | None = Field(default=None, description="Worker identifier")
+    queue_name: str | None = Field(default=None, description="Queue name")
     is_locked: bool = Field(default=False, description="Is locked")
-    locked_at: Optional[datetime] = Field(default=None, description="Locked at")
-    locked_by: Optional[str] = Field(default=None, description="Locked by")
+    locked_at: datetime | None = Field(default=None, description="Locked at")
+    locked_by: str | None = Field(default=None, description="Locked by")

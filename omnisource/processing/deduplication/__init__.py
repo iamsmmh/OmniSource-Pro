@@ -1,7 +1,7 @@
 """Duplicate detection engine for applications and repositories."""
 
 import re
-from typing import Dict, Iterable, List, Optional, Tuple
+from collections.abc import Iterable
 from urllib.parse import urlparse
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
@@ -23,7 +23,7 @@ def normalize_repo_name(value: str) -> str:
     return value
 
 
-def tokenize(value: Optional[str]) -> set:
+def tokenize(value: str | None) -> set:
     """Tokenize text into a set of lowercased words."""
     if not value:
         return set()
@@ -67,14 +67,14 @@ def find_duplicate(
     candidate: str,
     existing: Iterable[str],
     threshold: float = 0.9,
-) -> Optional[str]:
+) -> str | None:
     """Return the first existing name that duplicates the candidate.
 
     Two names are considered duplicates when either the slug matches or
     the name similarity exceeds the threshold.
     """
     candidate_slug = slugify(candidate)
-    best_match: Optional[Tuple[str, float]] = None
+    best_match: tuple[str, float] | None = None
 
     for name in existing:
         if slugify(name) == candidate_slug:
@@ -92,9 +92,9 @@ def find_duplicate(
 def group_duplicates(
     names: Iterable[str],
     threshold: float = 0.9,
-) -> List[List[str]]:
+) -> list[list[str]]:
     """Group a list of names into duplicate clusters."""
-    clusters: List[List[str]] = []
+    clusters: list[list[str]] = []
     for name in names:
         placed = False
         for cluster in clusters:
@@ -108,10 +108,10 @@ def group_duplicates(
 
 
 __all__ = [
-    "slugify",
-    "normalize_repo_name",
-    "jaccard",
-    "name_similarity",
     "find_duplicate",
     "group_duplicates",
+    "jaccard",
+    "name_similarity",
+    "normalize_repo_name",
+    "slugify",
 ]

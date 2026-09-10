@@ -1,17 +1,17 @@
 """Sync state and job models."""
 
-from datetime import datetime, UTC
+from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, JSON, Boolean, DateTime, Enum as SQLEnum, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from omnisource.core.models.base import Base
-from omnisource.core.models.source import Source
-from omnisource.core.models.repository import Repository
 from omnisource.core.models.application import Application
+from omnisource.core.models.base import Base
+from omnisource.core.models.repository import Repository
+from omnisource.core.models.source import Source
 
 
 class SyncJobType(str, Enum):
@@ -50,32 +50,24 @@ class SyncState(Base):
     __tablename__ = "sync_states"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
-    source_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("sources.id"), index=True
-    )
-    repository_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("repositories.id"), index=True
-    )
-    cursor: Mapped[Optional[str]] = mapped_column(String(500))
-    last_success: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    last_attempt: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    last_error: Mapped[Optional[str]] = mapped_column(String(500))
-    etag: Mapped[Optional[str]] = mapped_column(String(255))
-    last_etag: Mapped[Optional[str]] = mapped_column(String(255))
+    source_id: Mapped[UUID | None] = mapped_column(ForeignKey("sources.id"), index=True)
+    repository_id: Mapped[UUID | None] = mapped_column(ForeignKey("repositories.id"), index=True)
+    cursor: Mapped[str | None] = mapped_column(String(500))
+    last_success: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_attempt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(String(500))
+    etag: Mapped[str | None] = mapped_column(String(255))
+    last_etag: Mapped[str | None] = mapped_column(String(255))
     request_count: Mapped[int] = mapped_column(Integer, default=0)
     discovered_count: Mapped[int] = mapped_column(Integer, default=0)
     updated_count: Mapped[int] = mapped_column(Integer, default=0)
     failed_count: Mapped[int] = mapped_column(Integer, default=0)
-    rate_limit_remaining: Mapped[Optional[int]] = mapped_column(Integer)
-    rate_limit_reset: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    rate_limit_remaining: Mapped[int | None] = mapped_column(Integer)
+    rate_limit_reset: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Relationships
-    source: Mapped[Optional[Source]] = relationship(
-        "Source", back_populates="sync_state"
-    )
-    repository: Mapped[Optional[Repository]] = relationship(
-        "Repository", back_populates="sync_state"
-    )
+    source: Mapped[Source | None] = relationship("Source", back_populates="sync_state")
+    repository: Mapped[Repository | None] = relationship("Repository", back_populates="sync_state")
 
 
 class SyncJob(Base):
@@ -85,43 +77,31 @@ class SyncJob(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     job_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
-    job_type: Mapped[SyncJobType] = mapped_column(
-        SQLEnum(SyncJobType), nullable=False, index=True
-    )
+    job_type: Mapped[SyncJobType] = mapped_column(SQLEnum(SyncJobType), nullable=False, index=True)
     status: Mapped[SyncJobStatus] = mapped_column(
         SQLEnum(SyncJobStatus), default=SyncJobStatus.PENDING, index=True
     )
-    application_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("applications.id"), index=True
-    )
-    repository_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("repositories.id"), index=True
-    )
-    source_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("sources.id"), index=True
-    )
+    application_id: Mapped[UUID | None] = mapped_column(ForeignKey("applications.id"), index=True)
+    repository_id: Mapped[UUID | None] = mapped_column(ForeignKey("repositories.id"), index=True)
+    source_id: Mapped[UUID | None] = mapped_column(ForeignKey("sources.id"), index=True)
     priority: Mapped[int] = mapped_column(Integer, default=0)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     max_retries: Mapped[int] = mapped_column(Integer, default=3)
-    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    duration_ms: Mapped[Optional[int]] = mapped_column(Integer)
-    error_message: Mapped[Optional[str]] = mapped_column(String(1000))
-    error_code: Mapped[Optional[str]] = mapped_column(String(100))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    error_message: Mapped[str | None] = mapped_column(String(1000))
+    error_code: Mapped[str | None] = mapped_column(String(100))
     result: Mapped[dict] = mapped_column(JSON, default=dict)
-    worker_id: Mapped[Optional[str]] = mapped_column(String(255))
-    queue_name: Mapped[Optional[str]] = mapped_column(String(100))
+    worker_id: Mapped[str | None] = mapped_column(String(255))
+    queue_name: Mapped[str | None] = mapped_column(String(100))
     is_locked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    locked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    locked_by: Mapped[Optional[str]] = mapped_column(String(255))
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    locked_by: Mapped[str | None] = mapped_column(String(255))
 
     # Relationships
-    application: Mapped[Optional[Application]] = relationship(
+    application: Mapped[Application | None] = relationship(
         "Application", back_populates="sync_jobs"
     )
-    repository: Mapped[Optional[Repository]] = relationship(
-        "Repository"
-    )
-    source: Mapped[Optional[Source]] = relationship(
-        "Source"
-    )
+    repository: Mapped[Repository | None] = relationship("Repository")
+    source: Mapped[Source | None] = relationship("Source")

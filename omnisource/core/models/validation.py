@@ -1,16 +1,16 @@
 """Validation result models."""
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, JSON, Boolean, DateTime, Enum as SQLEnum, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from omnisource.core.models.base import Base
 from omnisource.core.models.application import Application
 from omnisource.core.models.asset import Asset
+from omnisource.core.models.base import Base
 
 
 class ValidationType(str, Enum):
@@ -62,35 +62,29 @@ class ValidationResult(Base):
     __tablename__ = "validation_results"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
-    application_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("applications.id"), index=True
-    )
-    asset_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("assets.id"), index=True
-    )
+    application_id: Mapped[UUID | None] = mapped_column(ForeignKey("applications.id"), index=True)
+    asset_id: Mapped[UUID | None] = mapped_column(ForeignKey("assets.id"), index=True)
     validation_type: Mapped[ValidationType] = mapped_column(
         SQLEnum(ValidationType), nullable=False, index=True
     )
     status: Mapped[ValidationStatus] = mapped_column(
         SQLEnum(ValidationStatus), default=ValidationStatus.PENDING, index=True
     )
-    error_code: Mapped[Optional[ValidationErrorCode]] = mapped_column(
+    error_code: Mapped[ValidationErrorCode | None] = mapped_column(
         SQLEnum(ValidationErrorCode), index=True
     )
-    message: Mapped[Optional[str]] = mapped_column(String(500))
+    message: Mapped[str | None] = mapped_column(String(500))
     details: Mapped[dict] = mapped_column(JSON, default=dict)
     validated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(UTC), nullable=False
     )
-    validated_by: Mapped[Optional[str]] = mapped_column(String(100))
+    validated_by: Mapped[str | None] = mapped_column(String(100))
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
-    next_retry_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    next_retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_retriable: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships
-    application: Mapped[Optional[Application]] = relationship(
+    application: Mapped[Application | None] = relationship(
         "Application", back_populates="validation_results"
     )
-    asset: Mapped[Optional[Asset]] = relationship(
-        "Asset"
-    )
+    asset: Mapped[Asset | None] = relationship("Asset")

@@ -1,6 +1,6 @@
 """Automation scheduler wiring for OmniSource."""
 
-from typing import Any, Dict
+from typing import Any
 
 from omnisource.automation.jobs import (
     run_discovery,
@@ -14,7 +14,7 @@ from omnisource.core.database.session import create_session
 from omnisource.crawler.scheduler import AsyncScheduler
 
 
-async def _run_with_session(fn, **kwargs) -> Dict[str, Any]:
+async def _run_with_session(fn, **kwargs) -> dict[str, Any]:
     """Execute a job function with its own database session."""
     async with create_session() as session:
         return await fn(session, **kwargs)

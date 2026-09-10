@@ -16,12 +16,12 @@ from omnisource.processing.platform_detector import (
 )
 
 __all__ = [
-    "detect_architecture",
-    "normalize_architecture",
-    "detect_platform",
-    "detect_package_type",
     "LicenseEngine",
-    "classify_license",
-    "normalize_license",
     "MetadataExtractor",
+    "classify_license",
+    "detect_architecture",
+    "detect_package_type",
+    "detect_platform",
+    "normalize_architecture",
+    "normalize_license",
 ]

@@ -2,18 +2,16 @@
 
 import os
 import tempfile
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from omnisource.config.logging import get_logger
 from omnisource.config.settings import get_settings
 from omnisource.core.repositories.application import ApplicationRepository
-from omnisource.core.schemas.omnistore import OmniStoreApp
 from omnisource.feeds.platform_feeds import FEED_REGISTRY
-from omnisource.feeds.schemas import FeedV1, V1_VERSION
+from omnisource.feeds.schemas import FeedV1
 
 logger = get_logger(__name__)
 
@@ -24,14 +22,14 @@ class FeedGenerator:
     def __init__(
         self,
         session: AsyncSession,
-        output_dir: Optional[str] = None,
+        output_dir: str | None = None,
     ):
         self.session = session
         settings = get_settings()
         self.output_dir = Path(output_dir or settings.feeds.FEEDS_DIR)
         self.version = settings.feeds.FEEDS_VERSION
 
-    async def generate(self, platform: str = "all") -> Dict[str, object]:
+    async def generate(self, platform: str = "all") -> dict[str, object]:
         """Generate a feed for a single platform."""
         feed_cls = FEED_REGISTRY.get(platform)
         if feed_cls is None:
@@ -62,7 +60,7 @@ class FeedGenerator:
             "version": self.version,
         }
 
-    async def generate_all(self) -> List[Dict[str, object]]:
+    async def generate_all(self) -> list[dict[str, object]]:
         """Generate feeds for all registered platforms."""
         results = []
         for platform in FEED_REGISTRY.keys():

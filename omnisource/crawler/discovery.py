@@ -1,7 +1,6 @@
 """Repository discovery and ingestion service."""
 
-from datetime import datetime, UTC
-from typing import Any, Dict, Optional
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,7 +27,7 @@ class DiscoveryService:
     def __init__(
         self,
         session: AsyncSession,
-        policies: Optional[ProcessingPolicies] = None,
+        policies: ProcessingPolicies | None = None,
     ):
         self.session = session
         self.policies = policies or ProcessingPolicies.from_settings()
@@ -36,9 +35,9 @@ class DiscoveryService:
     async def discover(
         self,
         source_type: str = "github",
-        query: Optional[str] = None,
-        limit: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        query: str | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
         """Run a discovery pass for a source type."""
         source_repo = SourceRepository(self.session)
         source = await source_repo.get_by_type(SourceType(source_type))
@@ -79,9 +78,7 @@ class DiscoveryService:
 
             ingested = 0
             for item in filtered:
-                await self._ingest_repository(
-                    repository_repo, metadata_extractor, source.id, item
-                )
+                await self._ingest_repository(repository_repo, metadata_extractor, source.id, item)
                 ingested += 1
 
             await checkpoint.save(
@@ -111,7 +108,7 @@ class DiscoveryService:
         repository_repo: RepositoryRepository,
         extractor: MetadataExtractor,
         source_id,
-        item: Dict[str, Any],
+        item: dict[str, Any],
     ) -> None:
         """Persist a single repository record and its metadata."""
         status = item.get("status")

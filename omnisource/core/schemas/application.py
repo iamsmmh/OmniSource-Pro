@@ -1,7 +1,6 @@
 """Pydantic schemas for applications."""
 
 from enum import Enum
-from typing import Optional
 from uuid import UUID
 
 from pydantic import ConfigDict, Field
@@ -34,15 +33,17 @@ class ApplicationSchema(BaseSchema):
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
-    id: Optional[UUID] = Field(default=None, description="Unique identifier")
+    id: UUID | None = Field(default=None, description="Unique identifier")
     app_id: str = Field(..., description="Application identifier")
     slug: str = Field(..., description="Slug")
     name: str = Field(..., description="Name")
-    short_description: Optional[str] = Field(default=None, description="Short description")
-    long_description: Optional[str] = Field(default=None, description="Long description")
-    homepage: Optional[str] = Field(default=None, description="Homepage URL")
-    documentation_url: Optional[str] = Field(default=None, description="Documentation URL")
-    status: ApplicationStatusSchema = Field(default=ApplicationStatusSchema.DRAFT, description="Status")
+    short_description: str | None = Field(default=None, description="Short description")
+    long_description: str | None = Field(default=None, description="Long description")
+    homepage: str | None = Field(default=None, description="Homepage URL")
+    documentation_url: str | None = Field(default=None, description="Documentation URL")
+    status: ApplicationStatusSchema = Field(
+        default=ApplicationStatusSchema.DRAFT, description="Status"
+    )
     open_source_status: OpenSourceStatusSchema = Field(
         default=OpenSourceStatusSchema.UNKNOWN, description="Open source status"
     )
@@ -55,10 +56,10 @@ class ApplicationRelationshipSchema(BaseSchema):
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
-    id: Optional[UUID] = Field(default=None, description="Unique identifier")
+    id: UUID | None = Field(default=None, description="Unique identifier")
     from_app_id: UUID = Field(..., description="Source application identifier")
     to_app_id: UUID = Field(..., description="Target application identifier")
     relationship_type: str = Field(..., description="Relationship type")
     confidence: float = Field(default=0.0, description="Confidence (0-1)")
-    method: Optional[str] = Field(default=None, description="Detection method")
-    created_by: Optional[str] = Field(default=None, description="Creator")
+    method: str | None = Field(default=None, description="Detection method")
+    created_by: str | None = Field(default=None, description="Creator")

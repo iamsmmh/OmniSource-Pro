@@ -14,4 +14,4 @@ from omnisource.config.settings import get_settings
 # Initialize settings
 settings = get_settings()
 
-__all__ = ["__version__", "__author__", "__license__", "settings"]
+__all__ = ["__author__", "__license__", "__version__", "settings"]

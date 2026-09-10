@@ -3,28 +3,22 @@ GitHub connector implementation for OmniSource.
 """
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from omnisource.config.settings import get_settings
 from omnisource.config.logging import get_logger
+from omnisource.config.settings import get_settings
 from omnisource.connectors.base import (
-    SourceConnector,
     ConnectorError,
     ConnectorHealth,
-    ConnectorStats,
     PageInfo,
+    SourceConnector,
 )
-from omnisource.connectors.github.client import GitHubClient
-from omnisource.connectors.github.models import (
-    GitHubRepository,
-    GitHubRelease,
-    GitHubAsset,
-)
-from omnisource.connectors.rate_limiter import RateLimiter
 from omnisource.connectors.cache import ResponseCache
+from omnisource.connectors.github.client import GitHubClient
+from omnisource.connectors.rate_limiter import RateLimiter
+from omnisource.core.schemas.asset import AssetSchema, AssetSourceSchema, AssetStatusSchema
+from omnisource.core.schemas.release import ReleaseSchema, ReleaseStatusSchema
 from omnisource.core.schemas.repository import RepositorySchema
-from omnisource.core.schemas.release import ReleaseSchema, ReleaseStatusSchema, PackageTypeSchema
-from omnisource.core.schemas.asset import AssetSchema, AssetStatusSchema, AssetSourceSchema
 
 logger = get_logger(__name__)
 
@@ -32,7 +26,7 @@ logger = get_logger(__name__)
 class GitHubConnector(SourceConnector):
     """
     GitHub connector for OmniSource.
-    
+
     Implements the SourceConnector interface for GitHub API.
     """
 
@@ -43,13 +37,13 @@ class GitHubConnector(SourceConnector):
 
     def __init__(
         self,
-        token: Optional[str] = None,
-        rate_limiter: Optional[RateLimiter] = None,
-        cache: Optional[ResponseCache] = None,
+        token: str | None = None,
+        rate_limiter: RateLimiter | None = None,
+        cache: ResponseCache | None = None,
     ):
         """
         Initialize the GitHub connector.
-        
+
         Args:
             token: GitHub personal access token
             rate_limiter: Rate limiter instance
@@ -62,7 +56,7 @@ class GitHubConnector(SourceConnector):
             period=timedelta(hours=1),
         )
         self.cache = cache or ResponseCache()
-        self._client: Optional[GitHubClient] = None
+        self._client: GitHubClient | None = None
 
     async def initialize(self) -> None:
         """Initialize the connector."""
@@ -84,21 +78,17 @@ class GitHubConnector(SourceConnector):
         logger.info("GitHub connector closed")
 
     async def discover(
-        self,
-        query: Optional[str] = None,
-        cursor: Optional[str] = None,
-        limit: int = 100,
-        **kwargs: Any
-    ) -> Tuple[List[RepositorySchema], PageInfo]:
+        self, query: str | None = None, cursor: str | None = None, limit: int = 100, **kwargs: Any
+    ) -> tuple[list[RepositorySchema], PageInfo]:
         """
         Discover repositories from GitHub.
-        
+
         Args:
             query: Search query
             cursor: Pagination cursor
             limit: Maximum repositories to return
             **kwargs: Additional parameters
-            
+
         Returns:
             Tuple of (repositories, page_info)
         """
@@ -107,7 +97,7 @@ class GitHubConnector(SourceConnector):
 
         # Build search query
         search_query = query or self._build_default_query()
-        
+
         # Get page from cursor if available
         page = 1
         if cursor:
@@ -126,10 +116,10 @@ class GitHubConnector(SourceConnector):
             )
         except Exception as e:
             logger.error(f"Failed to discover repositories: {e}")
-            raise ConnectorError(f"Discovery failed: {e}", is_retriable=True)
+            raise ConnectorError(f"Discovery failed: {e}", is_retriable=True) from e
 
         # Convert to RepositorySchema
-        repositories: List[RepositorySchema] = []
+        repositories: list[RepositorySchema] = []
         for item in result.get("items", []):
             try:
                 repo_schema = await self._convert_to_repository_schema(item)
@@ -172,28 +162,24 @@ class GitHubConnector(SourceConnector):
             "archived:false",
             "pushed:>2024-01-01",  # Active in the last year
         ]
-        
+
         # Add star range (avoid very small and very large repos)
         query_parts.append("stars:10..10000")
-        
+
         # Add license filter (common open source licenses)
         licenses = ["MIT", "Apache", "GPL", "BSD", "AGPL", "LGPL", "MPL", "ISC", "Unlicense"]
         query_parts.append(f"license:{','.join(licenses)}")
-        
+
         return " ".join(query_parts)
 
-    async def get_repository(
-        self,
-        repository_id: str,
-        **kwargs: Any
-    ) -> RepositorySchema:
+    async def get_repository(self, repository_id: str, **kwargs: Any) -> RepositorySchema:
         """
         Get details for a specific repository.
-        
+
         Args:
             repository_id: Repository identifier (format: "owner/repo")
             **kwargs: Additional parameters
-            
+
         Returns:
             Repository schema
         """
@@ -211,20 +197,18 @@ class GitHubConnector(SourceConnector):
             return await self._convert_to_repository_schema(data)
         except Exception as e:
             logger.error(f"Failed to get repository {repository_id}: {e}")
-            raise ConnectorError(f"Failed to get repository: {e}", is_retriable=True)
+            raise ConnectorError(f"Failed to get repository: {e}", is_retriable=True) from e
 
     async def get_releases(
-        self,
-        repository: RepositorySchema,
-        **kwargs: Any
-    ) -> List[ReleaseSchema]:
+        self, repository: RepositorySchema, **kwargs: Any
+    ) -> list[ReleaseSchema]:
         """
         Get releases for a repository.
-        
+
         Args:
             repository: Repository schema
             **kwargs: Additional parameters
-            
+
         Returns:
             List of release schemas
         """
@@ -236,48 +220,39 @@ class GitHubConnector(SourceConnector):
 
         try:
             releases_data = await self._client.get_releases(owner, repo)
-            releases: List[ReleaseSchema] = []
-            
+            releases: list[ReleaseSchema] = []
+
             for release_data in releases_data:
                 try:
-                    release_schema = await self._convert_to_release_schema(
-                        release_data, repository
-                    )
+                    release_schema = await self._convert_to_release_schema(release_data, repository)
                     releases.append(release_schema)
                 except Exception as e:
                     logger.warning(f"Failed to convert release {release_data.get('id')}: {e}")
                     continue
 
             # Sort by published_at descending
-            releases.sort(
-                key=lambda r: r.published_at or datetime.min,
-                reverse=True
-            )
+            releases.sort(key=lambda r: r.published_at or datetime.min, reverse=True)
 
             return releases
         except Exception as e:
             logger.error(f"Failed to get releases for {repository.full_name}: {e}")
-            raise ConnectorError(f"Failed to get releases: {e}", is_retriable=True)
+            raise ConnectorError(f"Failed to get releases: {e}", is_retriable=True) from e
 
-    async def get_assets(
-        self,
-        release: ReleaseSchema,
-        **kwargs: Any
-    ) -> List[AssetSchema]:
+    async def get_assets(self, release: ReleaseSchema, **kwargs: Any) -> list[AssetSchema]:
         """
         Get assets for a release.
-        
+
         Args:
             release: Release schema
             **kwargs: Additional parameters
-            
+
         Returns:
             List of asset schemas
         """
         # Assets are already included in the release data from GitHub
         # So we just need to convert them
-        assets: List[AssetSchema] = []
-        
+        assets: list[AssetSchema] = []
+
         for asset_data in release.assets or []:
             try:
                 asset_schema = await self._convert_to_asset_schema(asset_data, release)
@@ -288,18 +263,14 @@ class GitHubConnector(SourceConnector):
 
         return assets
 
-    async def get_metadata(
-        self,
-        repository: RepositorySchema,
-        **kwargs: Any
-    ) -> Dict[str, Any]:
+    async def get_metadata(self, repository: RepositorySchema, **kwargs: Any) -> dict[str, Any]:
         """
         Get metadata for a repository.
-        
+
         Args:
             repository: Repository schema
             **kwargs: Additional parameters
-            
+
         Returns:
             Metadata dictionary
         """
@@ -308,7 +279,7 @@ class GitHubConnector(SourceConnector):
 
         owner, repo = self._parse_repository_id(repository.external_id or repository.full_name)
 
-        metadata: Dict[str, Any] = {}
+        metadata: dict[str, Any] = {}
 
         # Get README
         try:
@@ -352,18 +323,23 @@ class GitHubConnector(SourceConnector):
     async def health_check(self) -> ConnectorHealth:
         """
         Check the health of the connector.
-        
+
         Returns:
             Health status
         """
         try:
             start_time = datetime.now()
-            
+
+            if self._client is None:
+                await self.initialize()
+            if self._client is None:  # pragma: no cover - defensive
+                raise ConnectorError("HTTP client failed to initialize", is_retriable=False)
+
             # Make a test request
             await self._client.get("/")
-            
+
             latency = (datetime.now() - start_time).total_seconds() * 1000
-            
+
             self.update_health(
                 healthy=True,
                 latency_ms=latency,
@@ -371,7 +347,7 @@ class GitHubConnector(SourceConnector):
                 last_success=datetime.now(),
                 last_error=None,
             )
-            
+
             return self._health
         except Exception as e:
             self.update_health(
@@ -382,24 +358,21 @@ class GitHubConnector(SourceConnector):
             logger.error(f"GitHub health check failed: {e}")
             return self._health
 
-    def _parse_repository_id(self, repo_id: str) -> Tuple[str, str]:
+    def _parse_repository_id(self, repo_id: str) -> tuple[str, str]:
         """Parse repository ID to owner and repo."""
         if "/" in repo_id:
             parts = repo_id.split("/", 1)
             return parts[0], parts[1]
         return repo_id, repo_id
 
-    async def _convert_to_repository_schema(
-        self,
-        data: Dict[str, Any]
-    ) -> RepositorySchema:
+    async def _convert_to_repository_schema(self, data: dict[str, Any]) -> RepositorySchema:
         """Convert GitHub API response to RepositorySchema."""
-        from omnisource.core.schemas.repository import RepositoryStatus, RepositoryVisibility
         from omnisource.core.models.source import SourceType
+        from omnisource.core.schemas.repository import RepositoryStatus, RepositoryVisibility
 
         # Get owner info
-        owner = data.get("owner", {})
-        
+        data.get("owner", {})
+
         return RepositorySchema(
             external_id=str(data.get("id", "")),
             full_name=data.get("full_name", ""),
@@ -408,8 +381,12 @@ class GitHubConnector(SourceConnector):
             homepage=data.get("homepage"),
             html_url=data.get("html_url", ""),
             api_url=data.get("url", ""),
-            status=RepositoryStatus.ACTIVE if not data.get("archived", False) else RepositoryStatus.ARCHIVED,
-            visibility=RepositoryVisibility.PUBLIC if not data.get("private", False) else RepositoryVisibility.PRIVATE,
+            status=RepositoryStatus.ACTIVE
+            if not data.get("archived", False)
+            else RepositoryStatus.ARCHIVED,
+            visibility=RepositoryVisibility.PUBLIC
+            if not data.get("private", False)
+            else RepositoryVisibility.PRIVATE,
             is_fork=data.get("fork", False),
             is_archived=data.get("archived", False),
             stars=data.get("stargazers_count", 0),
@@ -428,7 +405,7 @@ class GitHubConnector(SourceConnector):
 
     async def _convert_to_release_schema(
         self,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         repository: RepositorySchema,
     ) -> ReleaseSchema:
         """Convert GitHub API response to ReleaseSchema."""
@@ -438,7 +415,9 @@ class GitHubConnector(SourceConnector):
             tag=data.get("tag_name"),
             name=data.get("name"),
             body=data.get("body"),
-            status=ReleaseStatusSchema.RELEASED if not data.get("draft", False) else ReleaseStatusSchema.DRAFT,
+            status=ReleaseStatusSchema.RELEASED
+            if not data.get("draft", False)
+            else ReleaseStatusSchema.DRAFT,
             is_prerelease=data.get("prerelease", False),
             is_draft=data.get("draft", False),
             published_at=self._parse_datetime(data.get("published_at")),
@@ -453,24 +432,24 @@ class GitHubConnector(SourceConnector):
 
     async def _convert_to_asset_schema(
         self,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         release: ReleaseSchema,
     ) -> AssetSchema:
         """Convert GitHub asset to AssetSchema."""
-        from omnisource.core.models.release import detect_platform, detect_architecture
+        from omnisource.core.models.release import detect_architecture, detect_platform
 
         filename = data.get("name", "")
 
         # Detect platform and architecture
         detected_platform = detect_platform(filename)
         detected_architecture = detect_architecture(filename)
-        
+
         # Map content_type to mime_type
         mime_type = data.get("content_type", "application/octet-stream")
-        
+
         # Map package type
         package_type = self._map_package_type(filename, mime_type)
-        
+
         return AssetSchema(
             asset_id=f"gh-{data.get('id', '')}",
             filename=filename,
@@ -496,9 +475,9 @@ class GitHubConnector(SourceConnector):
     def _map_package_type(self, filename: str, mime_type: str) -> str:
         """Map filename and mime type to package type."""
         from omnisource.core.models.release import PackageType
-        
+
         filename_lower = filename.lower()
-        
+
         # Check by extension
         if filename_lower.endswith(".apk"):
             return PackageType.APK.value
@@ -536,7 +515,7 @@ class GitHubConnector(SourceConnector):
             return PackageType.TAR_XZ.value
         elif filename_lower.endswith(".snap"):
             return PackageType.SNAP.value
-        
+
         # Check by mime type
         if mime_type == "application/vnd.android.package-archive":
             return PackageType.APK.value
@@ -552,21 +531,21 @@ class GitHubConnector(SourceConnector):
             return PackageType.RPM.value
         elif mime_type == "application/x-flatpak":
             return PackageType.FLATPAK.value
-        
+
         return PackageType.BINARY.value
 
-    def _parse_datetime(self, value: Any) -> Optional[datetime]:
+    def _parse_datetime(self, value: Any) -> datetime | None:
         """Parse datetime from various formats."""
         if value is None:
             return None
-        
+
         if isinstance(value, datetime):
             return value
-        
+
         if isinstance(value, str):
             try:
                 return datetime.fromisoformat(value.replace("Z", "+00:00"))
             except (ValueError, AttributeError):
                 pass
-        
+
         return None

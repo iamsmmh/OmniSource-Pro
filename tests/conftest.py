@@ -6,54 +6,53 @@ is why it is assigned at module import time.
 """
 
 import os
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
-import pytest
 import pytest_asyncio
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("MEILISEARCH_URL", "")  # disable search indexing in tests
 
-from omnisource.config.settings import reload_settings  # noqa: E402
+from omnisource.config.settings import reload_settings
 
 reload_settings()
 
-from omnisource.core.database.base import close_db, get_async_engine  # noqa: E402
-from omnisource.core.database.session import create_session  # noqa: E402
-from omnisource.core.models import Base  # noqa: E402
-from omnisource.core.models.application import Application, OpenSourceStatus  # noqa: E402
-from omnisource.core.models.category import Category  # noqa: E402
-from omnisource.core.models.developer import Developer  # noqa: E402
-from omnisource.core.models.license import License  # noqa: E402
-from omnisource.core.models.platform import Platform  # noqa: E402
-from omnisource.core.models.release import Release, ReleaseAsset, ReleaseStatus  # noqa: E402
-from omnisource.core.models.asset import (  # noqa: E402
-    Asset,
-    AssetSource,
-    AssetStatus,
-)
-from omnisource.core.models.repository import (  # noqa: E402
-    Repository,
-    RepositoryMetadata,
-)
-from omnisource.core.models.scores import (  # noqa: E402
-    PopularityScore,
-    QualityScore,
-    TrustScore,
-)
-from omnisource.core.models.source import Source, SourceType  # noqa: E402
-from omnisource.core.schemas.asset import (  # noqa: E402
-    AssetSchema,
-    AssetSourceSchema,
-    AssetStatusSchema,
-)
-from omnisource.core.schemas.release import ReleaseSchema, ReleaseStatusSchema  # noqa: E402
-from omnisource.core.schemas.repository import RepositorySchema  # noqa: E402
-from omnisource.connectors.base import (  # noqa: E402
+from omnisource.connectors.base import (
     ConnectorHealth,
     PageInfo,
     SourceConnector,
 )
+from omnisource.core.database.base import close_db, get_async_engine
+from omnisource.core.database.session import create_session
+from omnisource.core.models import Base
+from omnisource.core.models.application import Application, OpenSourceStatus
+from omnisource.core.models.asset import (
+    Asset,
+    AssetSource,
+    AssetStatus,
+)
+from omnisource.core.models.category import Category
+from omnisource.core.models.developer import Developer
+from omnisource.core.models.license import License
+from omnisource.core.models.platform import Platform
+from omnisource.core.models.release import Release, ReleaseAsset, ReleaseStatus
+from omnisource.core.models.repository import (
+    Repository,
+    RepositoryMetadata,
+)
+from omnisource.core.models.scores import (
+    PopularityScore,
+    QualityScore,
+    TrustScore,
+)
+from omnisource.core.models.source import Source, SourceType
+from omnisource.core.schemas.asset import (
+    AssetSchema,
+    AssetSourceSchema,
+    AssetStatusSchema,
+)
+from omnisource.core.schemas.release import ReleaseSchema, ReleaseStatusSchema
+from omnisource.core.schemas.repository import RepositorySchema
 
 
 class MockConnector(SourceConnector):
@@ -220,12 +219,8 @@ async def seeded_application(session):
         )
     )
 
-    platform = Platform(
-        platform_type="linux", name="linux", display_name="Linux", is_active=True
-    )
-    category = Category(
-        category_type="utilities", name="Utilities", slug="utilities"
-    )
+    platform = Platform(platform_type="linux", name="linux", display_name="Linux", is_active=True)
+    category = Category(category_type="utilities", name="Utilities", slug="utilities")
     license_obj = License(
         license_id="apache-2.0",
         spdx_id="Apache-2.0",
@@ -233,9 +228,7 @@ async def seeded_application(session):
         short_name="Apache-2.0",
         is_osi_approved=True,
     )
-    developer = Developer(
-        developer_id="localsend", slug="localsend", name="LocalSend Contributors"
-    )
+    developer = Developer(developer_id="localsend", slug="localsend", name="LocalSend Contributors")
     app = Application(
         app_id="localsend/localsend",
         slug="localsend",
@@ -283,8 +276,12 @@ async def seeded_application(session):
     session.add_all(
         [
             TrustScore(application_id=app.id, score=0.9, normalized_score=90.0, factors={"a": 0.9}),
-            QualityScore(application_id=app.id, score=0.8, normalized_score=80.0, factors={"b": 0.8}),
-            PopularityScore(application_id=app.id, score=0.7, normalized_score=70.0, factors={"c": 0.7}),
+            QualityScore(
+                application_id=app.id, score=0.8, normalized_score=80.0, factors={"b": 0.8}
+            ),
+            PopularityScore(
+                application_id=app.id, score=0.7, normalized_score=70.0, factors={"c": 0.7}
+            ),
         ]
     )
     await session.commit()

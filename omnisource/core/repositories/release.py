@@ -1,10 +1,8 @@
 """Release repository for OmniSource."""
 
-from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from omnisource.core.models.release import Release, ReleaseAsset
 from omnisource.core.repositories.base import BaseRepository
@@ -15,9 +13,7 @@ class ReleaseRepository(BaseRepository[Release]):
 
     model = Release
 
-    async def get_by_external_id(
-        self, repository_id: UUID, external_id: str
-    ) -> Optional[Release]:
+    async def get_by_external_id(self, repository_id: UUID, external_id: str) -> Release | None:
         """Get a release by repository and external identifier."""
         result = await self.session.execute(
             select(Release).where(
@@ -27,9 +23,7 @@ class ReleaseRepository(BaseRepository[Release]):
         )
         return result.scalar_one_or_none()
 
-    async def list_for_repository(
-        self, repository_id: UUID, limit: int = 100
-    ) -> List[Release]:
+    async def list_for_repository(self, repository_id: UUID, limit: int = 100) -> list[Release]:
         """List releases for a repository, newest first."""
         query = (
             select(Release)
@@ -40,9 +34,7 @@ class ReleaseRepository(BaseRepository[Release]):
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
-    async def get_latest_for_repository(
-        self, repository_id: UUID
-    ) -> Optional[Release]:
+    async def get_latest_for_repository(self, repository_id: UUID) -> Release | None:
         """Get the latest non-draft release for a repository."""
         result = await self.session.execute(
             select(Release)

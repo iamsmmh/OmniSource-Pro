@@ -1,15 +1,17 @@
 """Mappers converting ORM entities into OmniStore-compatible schemas."""
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, cast
 
 from omnisource.core.models.application import Application
 from omnisource.core.models.asset import AssetStatus
 from omnisource.core.schemas.omnistore import (
     OmniStoreApp,
+    OmniStoreArchitecture,
     OmniStoreAsset,
     OmniStoreAssetStatus,
     OmniStoreDeveloper,
+    OmniStorePlatform,
     OmniStoreRelease,
     OmniStoreScores,
 )
@@ -36,7 +38,7 @@ def _omnistore_asset_status(asset) -> OmniStoreAssetStatus:
         return OmniStoreAssetStatus.UNKNOWN
 
 
-def _iso(value) -> Optional[str]:
+def _iso(value) -> str | None:
     if value is None:
         return None
     if hasattr(value, "isoformat"):
@@ -44,7 +46,7 @@ def _iso(value) -> Optional[str]:
     return str(value)
 
 
-def _to_omnistore_developer(app: Application) -> Optional[OmniStoreDeveloper]:
+def _to_omnistore_developer(app: Application) -> OmniStoreDeveloper | None:
     developer = getattr(app, "developer", None)
     if developer is None:
         organization = getattr(app, "organization", None)
@@ -64,7 +66,7 @@ def _to_omnistore_developer(app: Application) -> Optional[OmniStoreDeveloper]:
     )
 
 
-def _to_omnistore_scores(app: Application) -> Optional[OmniStoreScores]:
+def _to_omnistore_scores(app: Application) -> OmniStoreScores | None:
     trust = getattr(app, "trust_score", None)
     quality = getattr(app, "quality_score", None)
     popularity = getattr(app, "popularity_score", None)
@@ -72,7 +74,7 @@ def _to_omnistore_scores(app: Application) -> Optional[OmniStoreScores]:
     if not (trust or quality or popularity):
         return None
 
-    def _factors(score) -> Optional[List[str]]:
+    def _factors(score) -> list[str] | None:
         factors = getattr(score, "factors", None)
         if not factors:
             return None
@@ -89,20 +91,20 @@ def _to_omnistore_scores(app: Application) -> Optional[OmniStoreScores]:
     )
 
 
-def _norm(score) -> Optional[int]:
+def _norm(score) -> int | None:
     value = getattr(score, "normalized_score", None)
     if value is None:
         value = getattr(score, "score", None)
     if value is None:
         return None
     try:
-        return int(round(float(value)))
+        return round(float(value))
     except (TypeError, ValueError):
         return None
 
 
-def _to_omnistore_assets(release) -> List[OmniStoreAsset]:
-    assets: List[OmniStoreAsset] = []
+def _to_omnistore_assets(release) -> list[OmniStoreAsset]:
+    assets: list[OmniStoreAsset] = []
     for release_asset in getattr(release, "assets", []) or []:
         asset = getattr(release_asset, "asset", None)
         if asset is None:
@@ -110,8 +112,8 @@ def _to_omnistore_assets(release) -> List[OmniStoreAsset]:
         assets.append(
             OmniStoreAsset(
                 id=asset.asset_id,
-                platform=asset.detected_platform or "linux",
-                architecture=asset.detected_architecture or "any",
+                platform=OmniStorePlatform(asset.detected_platform or "linux"),
+                architecture=OmniStoreArchitecture(asset.detected_architecture or "any"),
                 package_type=asset.package_type or asset.file_type or "binary",
                 version=asset.version or release.version,
                 url=asset.browser_download_url or asset.download_url,
@@ -183,9 +185,9 @@ def to_omnistore_app(app: Application) -> OmniStoreApp:
         tags=tags,
         platforms=platforms,
         license=license_spdx,
-        homepage=app.homepage,
-        repository=repository_url,
-        documentation=app.documentation_url,
+        homepage=cast(Any, app.homepage),
+        repository=cast(Any, repository_url),
+        documentation=cast(Any, app.documentation_url),
         icon=icon_url,
         screenshots=screenshots,
         scores=_to_omnistore_scores(app),

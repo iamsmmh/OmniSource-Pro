@@ -1,6 +1,7 @@
 """Job definitions for OmniSource automation."""
 
-from typing import Any, Awaitable, Callable, Dict
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from omnisource.automation.jobs.discover import run_discovery
 from omnisource.automation.jobs.generate_feeds import run_feed_generation
@@ -11,7 +12,7 @@ from omnisource.automation.jobs.validate import run_validation
 JobHandler = Callable[..., Awaitable[Any]]
 
 # Maps a job type (string) to its handler function.
-JOB_HANDLERS: Dict[str, JobHandler] = {
+JOB_HANDLERS: dict[str, JobHandler] = {
     "discover_repositories": run_discovery,
     "sync_repository": run_sync,
     "sync_releases": run_sync,
@@ -26,8 +27,8 @@ __all__ = [
     "JOB_HANDLERS",
     "JobHandler",
     "run_discovery",
+    "run_feed_generation",
+    "run_indexing",
     "run_sync",
     "run_validation",
-    "run_indexing",
-    "run_feed_generation",
 ]

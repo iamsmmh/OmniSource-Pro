@@ -5,11 +5,9 @@ These schemas match the expectations of OmniStore as defined in:
 https://github.com/iamsmmh/OmniStore-Pro/src/lib/schemas/omnisource.ts
 """
 
-from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, List
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
 class OmniStorePlatform(str, Enum):
@@ -52,12 +50,11 @@ class OmniStoreAsset(BaseModel):
     package_type: str = Field(..., description="Package type (e.g., EXE, APK, DMG)")
     version: str = Field(..., description="Version string")
     url: HttpUrl = Field(..., description="Download URL")
-    size_bytes: Optional[int] = Field(default=None, description="File size in bytes")
-    sha256: Optional[str] = Field(default=None, description="SHA-256 checksum")
-    source: Optional[str] = Field(default=None, description="Source of the asset")
+    size_bytes: int | None = Field(default=None, description="File size in bytes")
+    sha256: str | None = Field(default=None, description="SHA-256 checksum")
+    source: str | None = Field(default=None, description="Source of the asset")
     status: OmniStoreAssetStatus = Field(
-        default=OmniStoreAssetStatus.UNKNOWN,
-        description="Asset validation status"
+        default=OmniStoreAssetStatus.UNKNOWN, description="Asset validation status"
     )
 
     model_config = ConfigDict(
@@ -72,7 +69,7 @@ class OmniStoreAsset(BaseModel):
                 "size_bytes": 12345678,
                 "sha256": "abc123...",
                 "source": "GitHub Release",
-                "status": "VALID"
+                "status": "VALID",
             }
         }
     )
@@ -82,9 +79,9 @@ class OmniStoreRelease(BaseModel):
     """Release schema compatible with OmniStore."""
 
     version: str = Field(..., description="Version string")
-    released_at: Optional[str] = Field(default=None, description="Release date (ISO format)")
-    notes: Optional[str] = Field(default=None, description="Release notes")
-    assets: List[OmniStoreAsset] = Field(default_factory=list, description="Release assets")
+    released_at: str | None = Field(default=None, description="Release date (ISO format)")
+    notes: str | None = Field(default=None, description="Release notes")
+    assets: list[OmniStoreAsset] = Field(default_factory=list, description="Release assets")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -92,7 +89,7 @@ class OmniStoreRelease(BaseModel):
                 "version": "1.0.0",
                 "released_at": "2026-01-01T00:00:00Z",
                 "notes": "Initial release",
-                "assets": []
+                "assets": [],
             }
         }
     )
@@ -104,7 +101,7 @@ class OmniStoreDeveloper(BaseModel):
     id: str = Field(..., description="Developer identifier")
     slug: str = Field(..., description="Developer slug")
     name: str = Field(..., description="Developer name")
-    url: Optional[HttpUrl] = Field(default=None, description="Developer URL")
+    url: HttpUrl | None = Field(default=None, description="Developer URL")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -112,7 +109,7 @@ class OmniStoreDeveloper(BaseModel):
                 "id": "example-dev",
                 "slug": "example-dev",
                 "name": "Example Developer",
-                "url": "https://github.com/example"
+                "url": "https://github.com/example",
             }
         }
     )
@@ -121,16 +118,16 @@ class OmniStoreDeveloper(BaseModel):
 class OmniStoreScores(BaseModel):
     """Scores schema compatible with OmniStore."""
 
-    trust: Optional[int] = Field(default=None, ge=0, le=100, description="Trust score (0-100)")
-    quality: Optional[int] = Field(default=None, ge=0, le=100, description="Quality score (0-100)")
-    popularity: Optional[int] = Field(default=None, ge=0, le=100, description="Popularity score (0-100)")
-    trust_factors: Optional[List[str]] = Field(
-        default=None,
-        description="Factors contributing to trust score"
+    trust: int | None = Field(default=None, ge=0, le=100, description="Trust score (0-100)")
+    quality: int | None = Field(default=None, ge=0, le=100, description="Quality score (0-100)")
+    popularity: int | None = Field(
+        default=None, ge=0, le=100, description="Popularity score (0-100)"
     )
-    quality_factors: Optional[List[str]] = Field(
-        default=None,
-        description="Factors contributing to quality score"
+    trust_factors: list[str] | None = Field(
+        default=None, description="Factors contributing to trust score"
+    )
+    quality_factors: list[str] | None = Field(
+        default=None, description="Factors contributing to quality score"
     )
 
     model_config = ConfigDict(
@@ -140,7 +137,7 @@ class OmniStoreScores(BaseModel):
                 "quality": 90,
                 "popularity": 92,
                 "trust_factors": ["Open-source license", "Active repository", "Recent releases"],
-                "quality_factors": ["Documentation", "Release consistency"]
+                "quality_factors": ["Documentation", "Release consistency"],
             }
         }
     )
@@ -152,45 +149,34 @@ class OmniStoreApp(BaseModel):
     id: str = Field(..., description="Application identifier")
     slug: str = Field(..., description="Application slug")
     name: str = Field(..., description="Application name")
-    short_description: Optional[str] = Field(default=None, description="Short description")
-    description: Optional[str] = Field(default=None, description="Long description")
-    features: Optional[List[str]] = Field(default=None, description="List of features")
-    developer: Optional[OmniStoreDeveloper] = Field(default=None, description="Developer information")
-    categories: List[str] = Field(default_factory=list, description="Application categories")
-    tags: List[str] = Field(default_factory=list, description="Application tags")
-    platforms: List[OmniStorePlatform] = Field(
-        default_factory=list,
-        description="Supported platforms"
+    short_description: str | None = Field(default=None, description="Short description")
+    description: str | None = Field(default=None, description="Long description")
+    features: list[str] | None = Field(default=None, description="List of features")
+    developer: OmniStoreDeveloper | None = Field(default=None, description="Developer information")
+    categories: list[str] = Field(default_factory=list, description="Application categories")
+    tags: list[str] = Field(default_factory=list, description="Application tags")
+    platforms: list[OmniStorePlatform] = Field(
+        default_factory=list, description="Supported platforms"
     )
-    license: Optional[str] = Field(default=None, description="License (SPDX identifier)")
-    homepage: Optional[HttpUrl] = Field(default=None, description="Homepage URL")
-    repository: Optional[HttpUrl] = Field(default=None, description="Repository URL")
-    documentation: Optional[HttpUrl] = Field(default=None, description="Documentation URL")
-    icon: Optional[HttpUrl] = Field(default=None, description="Icon URL")
-    screenshots: List[HttpUrl] = Field(default_factory=list, description="Screenshot URLs")
-    scores: Optional[OmniStoreScores] = Field(default=None, description="Application scores")
-    latest_release: Optional[OmniStoreRelease] = Field(
-        default=None,
-        description="Latest release information"
+    license: str | None = Field(default=None, description="License (SPDX identifier)")
+    homepage: HttpUrl | None = Field(default=None, description="Homepage URL")
+    repository: HttpUrl | None = Field(default=None, description="Repository URL")
+    documentation: HttpUrl | None = Field(default=None, description="Documentation URL")
+    icon: HttpUrl | None = Field(default=None, description="Icon URL")
+    screenshots: list[HttpUrl] = Field(default_factory=list, description="Screenshot URLs")
+    scores: OmniStoreScores | None = Field(default=None, description="Application scores")
+    latest_release: OmniStoreRelease | None = Field(
+        default=None, description="Latest release information"
     )
-    releases: List[OmniStoreRelease] = Field(
-        default_factory=list,
-        description="All releases"
-    )
-    alternatives: List[str] = Field(
-        default_factory=list,
-        description="Alternative applications"
-    )
-    similar: List[str] = Field(
-        default_factory=list,
-        description="Similar applications"
-    )
-    source_name: Optional[str] = Field(default=None, description="Source name (e.g., GitHub)")
-    source_status: Optional[str] = Field(default=None, description="Source status")
-    updated_at: Optional[str] = Field(default=None, description="Last update timestamp (ISO format)")
-    created_at: Optional[str] = Field(default=None, description="Creation timestamp (ISO format)")
+    releases: list[OmniStoreRelease] = Field(default_factory=list, description="All releases")
+    alternatives: list[str] = Field(default_factory=list, description="Alternative applications")
+    similar: list[str] = Field(default_factory=list, description="Similar applications")
+    source_name: str | None = Field(default=None, description="Source name (e.g., GitHub)")
+    source_status: str | None = Field(default=None, description="Source status")
+    updated_at: str | None = Field(default=None, description="Last update timestamp (ISO format)")
+    created_at: str | None = Field(default=None, description="Creation timestamp (ISO format)")
     open_source: bool = Field(default=True, description="Is open source")
-    active_development: Optional[bool] = Field(default=None, description="Actively developed")
+    active_development: bool | None = Field(default=None, description="Actively developed")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -200,12 +186,16 @@ class OmniStoreApp(BaseModel):
                 "name": "LocalSend",
                 "short_description": "Share files to nearby devices without the internet.",
                 "description": "LocalSend is a free, open-source app that allows you to securely share files and messages with nearby devices over your local network without an internet connection.",
-                "features": ["Cross-platform sharing", "No account required", "End-to-end encryption on LAN"],
+                "features": [
+                    "Cross-platform sharing",
+                    "No account required",
+                    "End-to-end encryption on LAN",
+                ],
                 "developer": {
                     "id": "localsend",
                     "slug": "localsend",
                     "name": "LocalSend Contributors",
-                    "url": "https://github.com/localsend"
+                    "url": "https://github.com/localsend",
                 },
                 "categories": ["utilities", "networking"],
                 "tags": ["file-transfer", "lan", "privacy"],
@@ -218,8 +208,17 @@ class OmniStoreApp(BaseModel):
                     "trust": 94,
                     "quality": 90,
                     "popularity": 92,
-                    "trust_factors": ["Open-source license", "Active repository", "Recent releases", "Established contributors"],
-                    "quality_factors": ["Documentation", "Release consistency", "Metadata completeness"]
+                    "trust_factors": [
+                        "Open-source license",
+                        "Active repository",
+                        "Recent releases",
+                        "Established contributors",
+                    ],
+                    "quality_factors": [
+                        "Documentation",
+                        "Release consistency",
+                        "Metadata completeness",
+                    ],
                 },
                 "open_source": True,
                 "active_development": True,
@@ -233,8 +232,8 @@ class OmniStoreApp(BaseModel):
                     "version": "1.16.1",
                     "released_at": "2026-08-20T00:00:00.000Z",
                     "notes": "Bug fixes and platform packaging updates.",
-                    "assets": []
-                }
+                    "assets": [],
+                },
             }
         }
     )
@@ -243,19 +242,14 @@ class OmniStoreApp(BaseModel):
 class PaginatedApps(BaseModel):
     """Paginated response for apps list."""
 
-    items: List[OmniStoreApp] = Field(..., description="List of applications")
+    items: list[OmniStoreApp] = Field(..., description="List of applications")
     total: int = Field(..., description="Total number of applications")
-    page: Optional[int] = Field(default=None, description="Current page number")
-    freshness: Optional[str] = Field(default=None, description="Data freshness timestamp")
+    page: int | None = Field(default=None, description="Current page number")
+    freshness: str | None = Field(default=None, description="Data freshness timestamp")
 
     model_config = ConfigDict(
         json_schema_extra={
-            "example": {
-                "items": [],
-                "total": 0,
-                "page": 1,
-                "freshness": "2026-09-07T00:00:00.000Z"
-            }
+            "example": {"items": [], "total": 0, "page": 1, "freshness": "2026-09-07T00:00:00.000Z"}
         }
     )
 

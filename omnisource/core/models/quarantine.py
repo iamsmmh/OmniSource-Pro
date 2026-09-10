@@ -1,16 +1,16 @@
 """Quarantine and security models."""
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, JSON, Boolean, DateTime, Enum as SQLEnum, Float, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from omnisource.core.models.base import Base
 from omnisource.core.models.application import Application
 from omnisource.core.models.asset import Asset
+from omnisource.core.models.base import Base
 
 
 class QuarantineReason(str, Enum):
@@ -44,37 +44,31 @@ class Quarantine(Base):
     __tablename__ = "quarantines"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
-    application_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("applications.id"), index=True
-    )
-    asset_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("assets.id"), index=True
-    )
+    application_id: Mapped[UUID | None] = mapped_column(ForeignKey("applications.id"), index=True)
+    asset_id: Mapped[UUID | None] = mapped_column(ForeignKey("assets.id"), index=True)
     reason: Mapped[QuarantineReason] = mapped_column(
         SQLEnum(QuarantineReason), nullable=False, index=True
     )
     status: Mapped[QuarantineStatus] = mapped_column(
         SQLEnum(QuarantineStatus), default=QuarantineStatus.QUARANTINED, index=True
     )
-    description: Mapped[Optional[str]] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text)
     details: Mapped[dict] = mapped_column(JSON, default=dict)
     quarantined_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(UTC), nullable=False
     )
-    quarantined_by: Mapped[Optional[str]] = mapped_column(String(100))
-    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    reviewed_by: Mapped[Optional[str]] = mapped_column(String(100))
-    review_notes: Mapped[Optional[str]] = mapped_column(Text)
-    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    quarantined_by: Mapped[str | None] = mapped_column(String(100))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_by: Mapped[str | None] = mapped_column(String(100))
+    review_notes: Mapped[str | None] = mapped_column(Text)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships
-    application: Mapped[Optional[Application]] = relationship(
+    application: Mapped[Application | None] = relationship(
         "Application", back_populates="quarantine"
     )
-    asset: Mapped[Optional[Asset]] = relationship(
-        "Asset"
-    )
+    asset: Mapped[Asset | None] = relationship("Asset")
 
 
 class SecurityScan(Base):
@@ -87,22 +81,20 @@ class SecurityScan(Base):
         ForeignKey("applications.id"), nullable=False, index=True
     )
     scan_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    scanner_version: Mapped[Optional[str]] = mapped_column(String(50))
+    scanner_version: Mapped[str | None] = mapped_column(String(50))
     scan_status: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     findings: Mapped[list[dict]] = mapped_column(JSON, default=list)
     vulnerabilities: Mapped[list[dict]] = mapped_column(JSON, default=list)
-    severity: Mapped[Optional[str]] = mapped_column(String(50))
+    severity: Mapped[str | None] = mapped_column(String(50))
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     scanned_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(UTC), nullable=False
     )
-    scanned_by: Mapped[Optional[str]] = mapped_column(String(100))
-    scan_duration_ms: Mapped[Optional[int]] = mapped_column(Integer)
+    scanned_by: Mapped[str | None] = mapped_column(String(100))
+    scan_duration_ms: Mapped[int | None] = mapped_column(Integer)
 
     # Relationships
-    application: Mapped[Application] = relationship(
-        "Application", back_populates="security_scans"
-    )
+    application: Mapped[Application] = relationship("Application", back_populates="security_scans")
 
 
 class SecurityStatus(str, Enum):

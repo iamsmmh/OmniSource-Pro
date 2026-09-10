@@ -1,7 +1,6 @@
 """Pydantic schemas for categories and tags."""
 
 from enum import Enum
-from typing import Optional
 from uuid import UUID
 
 from pydantic import ConfigDict, Field
@@ -40,13 +39,13 @@ class CategorySchema(BaseSchema):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: Optional[UUID] = Field(default=None, description="Unique identifier")
+    id: UUID | None = Field(default=None, description="Unique identifier")
     category_type: str = Field(..., description="Category type")
     name: str = Field(..., description="Name")
     slug: str = Field(..., description="Slug")
-    description: Optional[str] = Field(default=None, description="Description")
-    icon: Optional[str] = Field(default=None, description="Icon")
-    parent_id: Optional[UUID] = Field(default=None, description="Parent category identifier")
+    description: str | None = Field(default=None, description="Description")
+    icon: str | None = Field(default=None, description="Icon")
+    parent_id: UUID | None = Field(default=None, description="Parent category identifier")
     sort_order: int = Field(default=0, description="Sort order")
     is_active: bool = Field(default=True, description="Is active")
 
@@ -56,9 +55,9 @@ class TagSchema(BaseSchema):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: Optional[UUID] = Field(default=None, description="Unique identifier")
+    id: UUID | None = Field(default=None, description="Unique identifier")
     name: str = Field(..., description="Name")
     slug: str = Field(..., description="Slug")
-    description: Optional[str] = Field(default=None, description="Description")
+    description: str | None = Field(default=None, description="Description")
     usage_count: int = Field(default=0, description="Usage count")
     is_active: bool = Field(default=True, description="Is active")

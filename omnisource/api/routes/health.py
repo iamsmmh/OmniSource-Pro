@@ -2,14 +2,13 @@
 Health check API routes for OmniSource.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter
 from sqlalchemy import text
 
-from omnisource.config.settings import get_settings
 from omnisource.config.logging import get_logger
+from omnisource.config.settings import get_settings
 from omnisource.connectors.base import ConnectorHealth
 
 logger = get_logger(__name__)
@@ -17,22 +16,23 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.get("", response_model=Dict[str, Any])
-async def health() -> Dict[str, Any]:
+@router.get("", response_model=dict[str, Any])
+async def health() -> dict[str, Any]:
     """
     Full health check endpoint.
-    
+
     Returns the health status of all components.
     """
-    health_status = {
+    health_status: dict = {
         "status": "healthy",
         "timestamp": None,
         "components": {},
     }
-    
+
     # Check database
     try:
         from omnisource.core.database.base import get_async_engine
+
         engine = get_async_engine()
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
@@ -46,14 +46,15 @@ async def health() -> Dict[str, Any]:
             "status": "unhealthy",
             "error": str(e),
         }
-    
+
     # Check Redis
     try:
         import redis.asyncio as redis
+
         settings = get_settings()
         r = redis.from_url(settings.redis.REDIS_URL)
         await r.ping()
-        await r.close()
+        await r.aclose()
         health_status["components"]["redis"] = {
             "status": "healthy",
             "type": "redis",
@@ -64,16 +65,19 @@ async def health() -> Dict[str, Any]:
             "status": "unhealthy",
             "error": str(e),
         }
-    
+
     # Check Meilisearch
     try:
         import meilisearch
+
         settings = get_settings()
         client = meilisearch.Client(
             settings.meilisearch.MEILISEARCH_URL,
             settings.meilisearch.MEILISEARCH_MASTER_KEY,
         )
-        await client.health()
+        result = client.health()
+        if hasattr(result, "__await__"):
+            await result
         health_status["components"]["meilisearch"] = {
             "status": "healthy",
             "type": "meilisearch",
@@ -84,15 +88,16 @@ async def health() -> Dict[str, Any]:
             "status": "unhealthy",
             "error": str(e),
         }
-    
+
     # Check GitHub connector
     try:
         from omnisource.connectors.github import GitHubConnector
+
         connector = GitHubConnector()
         await connector.initialize()
         health = await connector.health_check()
         await connector.close()
-        
+
         health_status["components"]["github"] = {
             "status": "healthy" if health.healthy else "unhealthy",
             "type": "source",
@@ -105,28 +110,29 @@ async def health() -> Dict[str, Any]:
             "status": "unhealthy",
             "error": str(e),
         }
-    
-    from datetime import datetime, UTC
+
+    from datetime import UTC, datetime
+
     health_status["timestamp"] = datetime.now(UTC).isoformat() + "Z"
-    
+
     return health_status
 
 
-@router.get("/live", response_model=Dict[str, str])
-async def health_live() -> Dict[str, str]:
+@router.get("/live", response_model=dict[str, str])
+async def health_live() -> dict[str, str]:
     """
     Liveness probe.
-    
+
     Simple endpoint to check if the service is running.
     """
     return {"status": "alive"}
 
 
-@router.get("/ready", response_model=Dict[str, Any])
-async def health_ready() -> Dict[str, Any]:
+@router.get("/ready", response_model=dict[str, Any])
+async def health_ready() -> dict[str, Any]:
     """
     Readiness probe.
-    
+
     Checks if the service is ready to accept requests.
     """
     ready_status = {
@@ -134,10 +140,11 @@ async def health_ready() -> Dict[str, Any]:
         "database": False,
         "redis": False,
     }
-    
+
     # Check database
     try:
         from omnisource.core.database.base import get_async_engine
+
         engine = get_async_engine()
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
@@ -145,44 +152,48 @@ async def health_ready() -> Dict[str, Any]:
     except Exception:
         ready_status["status"] = "not_ready"
         ready_status["database"] = False
-    
+
     # Check Redis
     try:
         import redis.asyncio as redis
+
         settings = get_settings()
         r = redis.from_url(settings.redis.REDIS_URL)
         await r.ping()
-        await r.close()
+        await r.aclose()
         ready_status["redis"] = True
     except Exception:
         ready_status["status"] = "not_ready"
         ready_status["redis"] = False
-    
+
     return ready_status
 
 
-@router.get("/sources", response_model=List[ConnectorHealth])
-async def health_sources() -> List[ConnectorHealth]:
+@router.get("/sources", response_model=list[ConnectorHealth])
+async def health_sources() -> list[ConnectorHealth]:
     """
     Get health status of all sources.
-    
+
     Returns health information for each configured source.
     """
     health_list = []
-    
+
     # Check GitHub
     try:
         from omnisource.connectors.github import GitHubConnector
+
         connector = GitHubConnector()
         await connector.initialize()
         health = await connector.health_check()
         await connector.close()
         health_list.append(health)
     except Exception as e:
-        health_list.append(ConnectorHealth(
-            source="github",
-            healthy=False,
-            last_error=str(e),
-        ))
-    
+        health_list.append(
+            ConnectorHealth(
+                source="github",
+                healthy=False,
+                last_error=str(e),
+            )
+        )
+
     return health_list

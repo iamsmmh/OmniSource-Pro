@@ -1,7 +1,7 @@
 """Security evaluation and quarantine decision support."""
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Filename patterns that raise security signals during static analysis.
 _SUSPICIOUS_PATTERNS = [
@@ -27,19 +27,19 @@ class QuarantineDecision:
     """Decision about whether to quarantine an asset or application."""
 
     quarantine: bool
-    reasons: List[str] = field(default_factory=list)
+    reasons: list[str] = field(default_factory=list)
     confidence: float = 0.0
     scan_type: str = "static"
 
 
 def evaluate_security(
-    filename: Optional[str] = None,
+    filename: str | None = None,
     checksum_changed: bool = False,
     binary_replacement: bool = False,
     maintainer_anomaly: bool = False,
 ) -> QuarantineDecision:
     """Evaluate static security signals and return a quarantine decision."""
-    reasons: List[str] = []
+    reasons: list[str] = []
     confidence = 0.0
 
     if filename:
@@ -77,15 +77,20 @@ def evaluate_security(
 class SecurityScanner:
     """Runs static security checks and produces scan summaries."""
 
-    def scan(self, filename: Optional[str] = None, **signals: Any) -> Dict[str, Any]:
+    def scan(self, filename: str | None = None, **signals: Any) -> dict[str, Any]:
         decision = evaluate_security(filename=filename, **signals)
-        severity = "high" if decision.confidence >= 0.8 else "medium" if decision.confidence >= 0.5 else "low"
+        severity = (
+            "high"
+            if decision.confidence >= 0.8
+            else "medium"
+            if decision.confidence >= 0.5
+            else "low"
+        )
         return {
             "scan_type": "static",
             "scan_status": "flagged" if decision.quarantine else "passed_static_checks",
             "findings": [
-                {"reason": reason, "confidence": decision.confidence}
-                for reason in decision.reasons
+                {"reason": reason, "confidence": decision.confidence} for reason in decision.reasons
             ],
             "vulnerabilities": [],
             "severity": severity if decision.quarantine else None,

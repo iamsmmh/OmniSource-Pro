@@ -1,9 +1,7 @@
 """License detection and normalization engine."""
 
-from typing import Dict, Optional, Tuple
-
 # Common license identifiers normalized to SPDX ids.
-_LICENSE_ALIASES: Dict[str, str] = {
+_LICENSE_ALIASES: dict[str, str] = {
     "mit": "MIT",
     "mit license": "MIT",
     "apache": "Apache-2.0",
@@ -36,8 +34,8 @@ _LICENSE_ALIASES: Dict[str, str] = {
     "cc0": "CC0-1.0",
     "cc0-1.0": "CC0-1.0",
     "apache 2.0 with llvm exception": "Apache-2.0",
-    "no license": None,
-    "none": None,
+    "no license": "Unknown",
+    "none": "Unknown",
     "other": "LicenseRef-Other",
 }
 
@@ -69,7 +67,7 @@ _OPEN_SOURCE_LICENSES = {
 }
 
 
-def normalize_license(value: Optional[str]) -> Optional[str]:
+def normalize_license(value: str | None) -> str | None:
     """Normalize a license string to an SPDX identifier if possible."""
     if not value:
         return None
@@ -86,7 +84,7 @@ def normalize_license(value: Optional[str]) -> Optional[str]:
     return f"LicenseRef-{value.strip().replace(' ', '-')[:50]}"
 
 
-def classify_license(value: Optional[str]) -> Tuple[Optional[str], bool]:
+def classify_license(value: str | None) -> tuple[str | None, bool]:
     """Return (spdx_id, is_open_source) for a license string."""
     spdx = normalize_license(value)
     if spdx is None:
@@ -101,10 +99,10 @@ def classify_license(value: Optional[str]) -> Tuple[Optional[str], bool]:
 class LicenseEngine:
     """Stateless license normalization helper."""
 
-    def normalize(self, value: Optional[str]) -> Optional[str]:
+    def normalize(self, value: str | None) -> str | None:
         return normalize_license(value)
 
-    def classify(self, value: Optional[str]) -> Tuple[Optional[str], bool]:
+    def classify(self, value: str | None) -> tuple[str | None, bool]:
         return classify_license(value)
 
     @property

@@ -1,6 +1,6 @@
 """Feed generation job."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +14,7 @@ async def run_feed_generation(
     session: AsyncSession,
     platform: str = "all",
     **kwargs: Any,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Generate platform feeds."""
     generator = FeedGenerator(session)
     if platform == "all":

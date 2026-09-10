@@ -62,9 +62,7 @@ async def test_sync_repository_builds_application_graph(session, mock_connector)
     )
     await session.commit()
 
-    result = await RepositorySyncService(session).sync_repository(
-        mock_connector, repository
-    )
+    result = await RepositorySyncService(session).sync_repository(mock_connector, repository)
     await session.commit()
 
     assert result["releases"] == 1
@@ -81,12 +79,8 @@ async def test_sync_repository_builds_application_graph(session, mock_connector)
     assert [p.platform_type for p in app.platforms] == ["linux"]
     assert [a.architecture_type for a in app.architectures] == ["x86_64"]
 
-    platform_rows = await session.scalar(
-        select(func.count()).select_from(application_platforms)
-    )
-    arch_rows = await session.scalar(
-        select(func.count()).select_from(application_architectures)
-    )
+    platform_rows = await session.scalar(select(func.count()).select_from(application_platforms))
+    arch_rows = await session.scalar(select(func.count()).select_from(application_architectures))
     assert platform_rows == 1
     assert arch_rows == 1
 

@@ -1,16 +1,16 @@
 """Quality score calculation."""
 
-from typing import Any, Dict
+from typing import Any
 
 
-def compute_quality(metrics: Dict[str, Any]) -> Dict[str, Any]:
+def compute_quality(metrics: dict[str, Any]) -> dict[str, Any]:
     """Compute a quality score (0-100) and factor breakdown.
 
     Supported metric keys: ``has_readme``, ``has_description``,
     ``has_screenshots``, ``platform_count``, ``release_count``,
     ``last_release_days``, ``has_license``, ``metadata_completeness``.
     """
-    factors: Dict[str, float] = {}
+    factors: dict[str, float] = {}
 
     factors["documentation"] = (
         1.0 if metrics.get("has_readme") else 0.3 if metrics.get("has_description") else 0.0

@@ -4,11 +4,10 @@ Logging configuration for OmniSource.
 Provides structured JSON logging with configurable levels and formats.
 """
 
-import json
 import logging
 import sys
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from pythonjsonlogger import jsonlogger
 
@@ -16,7 +15,9 @@ from pythonjsonlogger import jsonlogger
 class OmniSourceJSONFormatter(jsonlogger.JsonFormatter):
     """Custom JSON formatter for OmniSource logs."""
 
-    def add_fields(self, log_record: Dict[str, Any], record: logging.LogRecord, message_dict: Dict[str, Any]) -> None:
+    def add_fields(
+        self, log_record: dict[str, Any], record: logging.LogRecord, message_dict: dict[str, Any]
+    ) -> None:
         """Add custom fields to log record."""
         super().add_fields(log_record, record, message_dict)
 
@@ -26,12 +27,44 @@ class OmniSourceJSONFormatter(jsonlogger.JsonFormatter):
         log_record["logger"] = record.name
 
         # Add custom OmniSource fields if available
-        for field in ["service", "job_id", "source", "repository", "application_id", "operation", "duration", "status", "error_code"]:
+        for field in [
+            "service",
+            "job_id",
+            "source",
+            "repository",
+            "application_id",
+            "operation",
+            "duration",
+            "status",
+            "error_code",
+        ]:
             if hasattr(record, field):
                 log_record[field] = getattr(record, field)
 
         # Remove standard LogRecord attributes that are already included
-        for attr in ["name", "msg", "args", "created", "filename", "funcName", "levelname", "levelno", "lineno", "module", "msecs", "pathname", "process", "processName", "relativeCreated", "stack_info", "exc_info", "exc_text", "thread", "threadName", "message"]:
+        for attr in [
+            "name",
+            "msg",
+            "args",
+            "created",
+            "filename",
+            "funcName",
+            "levelname",
+            "levelno",
+            "lineno",
+            "module",
+            "msecs",
+            "pathname",
+            "process",
+            "processName",
+            "relativeCreated",
+            "stack_info",
+            "exc_info",
+            "exc_text",
+            "thread",
+            "threadName",
+            "message",
+        ]:
             log_record.pop(attr, None)
 
 
@@ -46,10 +79,9 @@ def setup_logging(log_level: str = "INFO", json_format: bool = True) -> None:
     level = getattr(logging, log_level.upper(), logging.INFO)
 
     # Create formatter
+    formatter: logging.Formatter
     if json_format:
-        formatter = OmniSourceJSONFormatter(
-            fmt="%(timestamp)s %(level)s %(logger)s %(message)s"
-        )
+        formatter = OmniSourceJSONFormatter(fmt="%(timestamp)s %(level)s %(logger)s %(message)s")
     else:
         formatter = logging.Formatter(
             fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
@@ -98,7 +130,9 @@ class StructuredLogger:
     def __init__(self, logger: logging.Logger):
         self._logger = logger
 
-    def _log(self, level: int, message: str, extra: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
+    def _log(
+        self, level: int, message: str, extra: dict[str, Any] | None = None, **kwargs: Any
+    ) -> None:
         """Log a message with extra fields."""
         extra_fields = extra or {}
         extra_fields.update(kwargs)

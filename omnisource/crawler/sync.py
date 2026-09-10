@@ -1,6 +1,6 @@
 """Repository synchronization service: releases, assets, applications."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -15,7 +15,7 @@ from omnisource.core.models.application import (
     OpenSourceStatus,
     application_platforms,
 )
-from omnisource.core.models.asset import Asset, AssetStatus, AssetSource
+from omnisource.core.models.asset import Asset, AssetSource, AssetStatus
 from omnisource.core.models.category import Category, Tag
 from omnisource.core.models.developer import Developer
 from omnisource.core.models.license import License
@@ -41,20 +41,22 @@ logger = get_logger(__name__)
 class RepositorySyncService:
     """Synchronizes repositories, releases, assets, and applications."""
 
-    def __init__(self, session: AsyncSession, policies: Optional[ProcessingPolicies] = None):
+    def __init__(self, session: AsyncSession, policies: ProcessingPolicies | None = None):
         self.session = session
         self.policies = policies or ProcessingPolicies.from_settings()
         self.scoring = ScoringEngine()
 
         # In-session caches avoid duplicate lookups/inserts within a batch.
-        self._developer_cache: Dict[str, Developer] = {}
-        self._license_cache: Dict[str, License] = {}
-        self._category_cache: Dict[str, Category] = {}
-        self._tag_cache: Dict[str, Tag] = {}
-        self._platform_cache: Dict[str, Platform] = {}
-        self._architecture_cache: Dict[str, Architecture] = {}
+        self._developer_cache: dict[str, Developer] = {}
+        self._license_cache: dict[str, License] = {}
+        self._category_cache: dict[str, Category] = {}
+        self._tag_cache: dict[str, Tag] = {}
+        self._platform_cache: dict[str, Platform] = {}
+        self._architecture_cache: dict[str, Architecture] = {}
 
-    async def sync_source(self, source_type: str = "github", limit: Optional[int] = None) -> Dict[str, Any]:
+    async def sync_source(
+        self, source_type: str = "github", limit: int | None = None
+    ) -> dict[str, Any]:
         """Synchronize all repositories for a source type."""
         source_repo = SourceRepository(self.session)
         source = await source_repo.get_by_type(SourceType(source_type))
@@ -91,13 +93,13 @@ class RepositorySyncService:
         self,
         connector: SourceConnector,
         repository: Repository,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Synchronize releases and assets for a single repository."""
         repo_schema = RepositorySchema.model_validate(repository)
 
         try:
             releases = await connector.get_releases(repo_schema)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("Failed to fetch releases for %s: %s", repository.full_name, exc)
             return {"releases": 0, "assets": 0}
 
@@ -212,9 +214,7 @@ class RepositorySyncService:
     async def _get_or_create_license(self, spdx_id: str) -> License:
         if spdx_id in self._license_cache:
             return self._license_cache[spdx_id]
-        result = await self.session.execute(
-            select(License).where(License.spdx_id == spdx_id)
-        )
+        result = await self.session.execute(select(License).where(License.spdx_id == spdx_id))
         license_obj = result.scalar_one_or_none()
         if license_obj is None:
             license_obj = License(
@@ -228,7 +228,7 @@ class RepositorySyncService:
         self._license_cache[spdx_id] = license_obj
         return license_obj
 
-    async def _classify(self, app: Application, topics: List[str]) -> None:
+    async def _classify(self, app: Application, topics: list[str]) -> None:
         category_types = categorize(topics=topics, description=app.short_description)
         for category_type in category_types:
             category = await self._get_or_create_category(category_type)
@@ -273,7 +273,7 @@ class RepositorySyncService:
         self,
         app: Application,
         release: Release,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> Asset:
         outcome = validate_asset(data)
         status = AssetStatus(outcome.status)
@@ -372,10 +372,10 @@ class RepositorySyncService:
         metadata = await repository.awaitable_attrs.metadata_obj
 
         release_objs = (
-            await self.session.execute(
-                select(Release).where(Release.application_id == app.id)
-            )
-        ).scalars().all()
+            (await self.session.execute(select(Release).where(Release.application_id == app.id)))
+            .scalars()
+            .all()
+        )
 
         platform_count = int(
             await self.session.scalar(

@@ -1,14 +1,13 @@
 """Score models for trust, quality, and popularity."""
 
-from datetime import datetime, UTC
-from typing import Any, Optional
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, JSON, Boolean, DateTime, Float, Integer, String, Text, func
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from omnisource.core.models.base import Base
 from omnisource.core.models.application import Application
+from omnisource.core.models.base import Base
 
 
 class ScoreFactor(Base):
@@ -26,7 +25,7 @@ class ScoreFactor(Base):
     calculated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(UTC), nullable=False
     )
-    calculated_by: Mapped[Optional[str]] = mapped_column(String(100))
+    calculated_by: Mapped[str | None] = mapped_column(String(100))
 
 
 class TrustScore(ScoreFactor):
@@ -46,9 +45,7 @@ class TrustScore(ScoreFactor):
     metadata_quality_weight: Mapped[float] = mapped_column(Float, default=0.05)
 
     # Relationships
-    application: Mapped[Application] = relationship(
-        "Application", back_populates="trust_score"
-    )
+    application: Mapped[Application] = relationship("Application", back_populates="trust_score")
 
 
 class QualityScore(ScoreFactor):
@@ -66,9 +63,7 @@ class QualityScore(ScoreFactor):
     maintenance_status_weight: Mapped[float] = mapped_column(Float, default=0.10)
 
     # Relationships
-    application: Mapped[Application] = relationship(
-        "Application", back_populates="quality_score"
-    )
+    application: Mapped[Application] = relationship("Application", back_populates="quality_score")
 
 
 class PopularityScore(ScoreFactor):

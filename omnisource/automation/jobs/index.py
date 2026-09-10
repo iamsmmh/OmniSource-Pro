@@ -1,6 +1,6 @@
 """Search indexing job."""
 
-from typing import Any, Dict
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 async def run_indexing(
     session: AsyncSession,
     **kwargs: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Index all applications into the search engine."""
     repo = ApplicationRepository(session)
     apps = await repo.get_all_apps()
