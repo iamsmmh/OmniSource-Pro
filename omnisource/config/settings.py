@@ -5,7 +5,6 @@ Uses Pydantic Settings with environment variable support.
 """
 
 from functools import lru_cache
-from typing import List, Optional
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,6 +17,8 @@ class DatabaseSettings(BaseSettings):
         default="postgresql+asyncpg://user:password@localhost:5432/omnisource",
         description="PostgreSQL database URL",
     )
+    BACKUP_DIR: str = Field(default="./data/backups", description="Backup output directory")
+    BACKUP_KEEP: int = Field(default=7, ge=1, description="Backups to retain per artifact type")
     DATABASE_POOL_SIZE: int = Field(default=20, ge=1, le=100)
     DATABASE_MAX_OVERFLOW: int = Field(default=10, ge=0, le=50)
     DATABASE_POOL_TIMEOUT: int = Field(default=30, ge=1, le=300)
@@ -49,7 +50,7 @@ class MeilisearchSettings(BaseSettings):
         default="http://localhost:7700",
         description="Meilisearch server URL",
     )
-    MEILISEARCH_MASTER_KEY: Optional[str] = Field(
+    MEILISEARCH_MASTER_KEY: str | None = Field(
         default=None,
         description="Meilisearch master key (optional for development)",
     )
@@ -62,7 +63,7 @@ class MeilisearchSettings(BaseSettings):
 class GitHubSettings(BaseSettings):
     """GitHub API configuration."""
 
-    GH_TOKEN: Optional[str] = Field(
+    GH_TOKEN: str | None = Field(
         default=None,
         description="GitHub personal access token",
     )
@@ -74,40 +75,54 @@ class GitHubSettings(BaseSettings):
 class SourceSettings(BaseSettings):
     """External source configuration."""
 
-    GITLAB_TOKEN: Optional[str] = Field(default=None)
-    CODEBERG_TOKEN: Optional[str] = Field(default=None)
+    GITLAB_TOKEN: str | None = Field(default=None)
+    CODEBERG_TOKEN: str | None = Field(default=None)
+    FORGEJO_TOKEN: str | None = Field(default=None)
+    HOMEBREW_API_URL: str = Field(default="https://formulae.brew.sh/api")
     FDROID_API_URL: str = Field(default="https://f-droid.org/api/v1")
     FLATHUB_API_URL: str = Field(default="https://flathub.org/api/v1")
+    WEBHOOK_SECRET_GITHUB: str | None = Field(default=None)
+    WEBHOOK_SECRET_GITLAB: str | None = Field(default=None)
+    WEBHOOK_SECRET_GITEA: str | None = Field(default=None)
 
 
 class S3Settings(BaseSettings):
     """S3-compatible storage configuration for feeds."""
 
-    S3_ENDPOINT: Optional[str] = Field(default=None)
-    S3_BUCKET: Optional[str] = Field(default=None)
-    S3_ACCESS_KEY: Optional[str] = Field(default=None)
-    S3_SECRET_KEY: Optional[str] = Field(default=None)
-    S3_REGION: Optional[str] = Field(default=None)
+    S3_ENDPOINT: str | None = Field(default=None)
+    S3_BUCKET: str | None = Field(default=None)
+    S3_ACCESS_KEY: str | None = Field(default=None)
+    S3_SECRET_KEY: str | None = Field(default=None)
+    S3_REGION: str | None = Field(default=None)
     S3_FEEDS_PREFIX: str = Field(default="feeds")
 
 
 class AISettings(BaseSettings):
     """AI provider configuration (optional)."""
 
-    AI_PROVIDER: Optional[str] = Field(default=None)
-    AI_API_KEY: Optional[str] = Field(default=None)
-    AI_API_URL: Optional[str] = Field(default=None)
+    AI_PROVIDER: str | None = Field(default=None)
+    AI_API_KEY: str | None = Field(default=None)
+    AI_API_URL: str | None = Field(default=None)
+    AI_EMBEDDING_MODEL: str | None = Field(default="text-embedding-3-small")
 
 
 class APISettings(BaseSettings):
     """API server configuration."""
 
-    API_HOST: str = Field(default="0.0.0.0")
+    API_HOST: str = Field(default="0.0.0.0")  # noqa: S104 - server binds all interfaces by design
     API_PORT: int = Field(default=8000, ge=1, le=65535)
     API_DEBUG: bool = Field(default=False)
     API_WORKERS: int = Field(default=4, ge=1, le=100)
     API_RATE_LIMIT: int = Field(default=100, ge=1, description="Requests per minute")
-    API_CORS_ORIGINS: List[str] = Field(
+    API_KEYS: list[str] = Field(
+        default_factory=list,
+        description="Valid API keys; empty list disables API-key auth",
+    )
+    API_AUTH_REQUIRED: bool = Field(
+        default=False,
+        description="Require an API key on public read endpoints as well",
+    )
+    API_CORS_ORIGINS: list[str] = Field(
         default=["*"],
         description="CORS allowed origins",
     )
@@ -172,6 +187,12 @@ class Settings(BaseSettings):
     # Sync settings
     SYNC_INTERVAL_HOURS: int = Field(default=6, ge=1, le=24)
     VALIDATION_INTERVAL_HOURS: int = Field(default=12, ge=1, le=24)
+    SYNC_SKIP_UNCHANGED: bool = Field(
+        default=True, description="Skip repositories whose pushed_at is unchanged"
+    )
+    SYNC_MAX_AGE_HOURS: int = Field(
+        default=168, ge=1, description="Force a full resync after this many hours"
+    )
 
     @field_validator("APP_ENV")
     @classmethod
@@ -182,7 +203,7 @@ class Settings(BaseSettings):
         return v.lower()
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance."""
     return Settings()

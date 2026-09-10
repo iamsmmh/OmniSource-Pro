@@ -1,17 +1,16 @@
 """Database initialization and engine management."""
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Optional
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine, async_sessionmaker
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
 from omnisource.config.settings import get_settings
 
 # Global engine instances
-_engine: Optional[AsyncEngine] = None
-_async_session_maker: Optional[async_sessionmaker] = None
+_engine: AsyncEngine | None = None
+_async_session_maker: async_sessionmaker | None = None
 
 
 def get_async_engine() -> AsyncEngine:
@@ -58,25 +57,25 @@ def get_async_session() -> async_sessionmaker:
 async def init_db() -> AsyncEngine:
     """
     Initialize the database.
-    
+
     Creates tables and sets up the database schema.
-    
+
     Returns:
         The async engine instance
     """
     engine = get_async_engine()
-    
+
     # Import all models to register them with SQLAlchemy
-    from omnisource.core.models import Base  # noqa: F401
-    
+    from omnisource.core.models import Base
+
     async with engine.begin() as conn:
         # Enable UUID extension if PostgreSQL
         if "postgresql" in str(engine.url):
             await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "pgcrypto"'))
-        
+
         # Create all tables
         await conn.run_sync(Base.metadata.create_all)
-    
+
     return engine
 
 
@@ -93,7 +92,7 @@ async def close_db() -> None:
 async def get_db_lifespan() -> AsyncGenerator[AsyncEngine, None]:
     """
     Context manager for database lifespan (used with FastAPI).
-    
+
     Yields:
         The async engine
     """
@@ -104,6 +103,6 @@ async def get_db_lifespan() -> AsyncGenerator[AsyncEngine, None]:
         await close_db()
 
 
-def get_sync_engine() -> Optional[AsyncEngine]:
+def get_sync_engine() -> AsyncEngine | None:
     """Get the sync engine (for migrations)."""
     return _engine

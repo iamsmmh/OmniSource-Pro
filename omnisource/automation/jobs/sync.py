@@ -1,6 +1,6 @@
 """Repository synchronization job."""
 
-from typing import Any, Dict
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +14,7 @@ async def run_sync(
     session: AsyncSession,
     source_type: str = "github",
     **kwargs: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run a synchronization pass for a source type."""
     service = RepositorySyncService(session)
     result = await service.sync_source(source_type=source_type)

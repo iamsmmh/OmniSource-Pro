@@ -1,7 +1,7 @@
 """GitLab connector implementation for OmniSource."""
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from urllib.parse import quote
 
 import httpx
@@ -17,12 +17,12 @@ from omnisource.connectors.base import (
 from omnisource.connectors.rate_limiter import RateLimiter
 from omnisource.core.models.release import detect_architecture, detect_package_type, detect_platform
 from omnisource.core.schemas.asset import AssetSchema, AssetSourceSchema, AssetStatusSchema
+from omnisource.core.schemas.release import ReleaseSchema, ReleaseStatusSchema
 from omnisource.core.schemas.repository import (
     RepositorySchema,
     RepositoryStatus,
     RepositoryVisibility,
 )
-from omnisource.core.schemas.release import ReleaseSchema, ReleaseStatusSchema
 
 logger = get_logger(__name__)
 
@@ -37,9 +37,9 @@ class GitLabConnector(SourceConnector):
 
     def __init__(
         self,
-        token: Optional[str] = None,
-        base_url: Optional[str] = None,
-        api_url: Optional[str] = None,
+        token: str | None = None,
+        base_url: str | None = None,
+        api_url: str | None = None,
     ):
         super().__init__()
         settings = get_settings()
@@ -47,7 +47,7 @@ class GitLabConnector(SourceConnector):
         self.base_url = base_url or self.base_url
         self.api_url = api_url or self.api_url
         self.rate_limiter = RateLimiter(max_requests=2000, period=timedelta(minutes=1))
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def initialize(self) -> None:
         headers = {"Accept": "application/json", "User-Agent": "OmniSource/0.1.0"}
@@ -63,7 +63,7 @@ class GitLabConnector(SourceConnector):
             self._client = None
         self._initialized = False
 
-    async def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Any:
+    async def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         if not self._client:
             raise ConnectorError("Connector not initialized", is_retriable=False)
         await self.rate_limiter.wait_for_token()
@@ -71,7 +71,9 @@ class GitLabConnector(SourceConnector):
         if response.status_code == 404:
             raise ConnectorError(f"Not found: {path}", error_code="HTTP_404")
         if response.status_code == 401:
-            raise ConnectorError("GitLab authentication failed", error_code="AUTH_ERROR", is_retriable=False)
+            raise ConnectorError(
+                "GitLab authentication failed", error_code="AUTH_ERROR", is_retriable=False
+            )
         if response.status_code in (429, 502, 503):
             raise ConnectorError(f"GitLab error {response.status_code}", error_code="RATE_LIMIT")
         response.raise_for_status()
@@ -79,11 +81,11 @@ class GitLabConnector(SourceConnector):
 
     async def discover(
         self,
-        query: Optional[str] = None,
-        cursor: Optional[str] = None,
+        query: str | None = None,
+        cursor: str | None = None,
         limit: int = 100,
         **kwargs: Any,
-    ) -> Tuple[List[RepositorySchema], PageInfo]:
+    ) -> tuple[list[RepositorySchema], PageInfo]:
         page = 1
         if cursor:
             try:
@@ -91,7 +93,7 @@ class GitLabConnector(SourceConnector):
             except ValueError:
                 page = 1
 
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "simple": True,
             "per_page": min(limit, 100),
             "page": page,
@@ -121,7 +123,9 @@ class GitLabConnector(SourceConnector):
         data = await self._get(path)
         return self._to_repository_schema(data)
 
-    async def get_releases(self, repository: RepositorySchema, **kwargs: Any) -> List[ReleaseSchema]:
+    async def get_releases(
+        self, repository: RepositorySchema, **kwargs: Any
+    ) -> list[ReleaseSchema]:
         project_id = repository.external_id or repository.full_name
         data = await self._get(f"/projects/{quote(project_id, safe='')}/releases")
         releases = []
@@ -136,7 +140,9 @@ class GitLabConnector(SourceConnector):
                     status=ReleaseStatusSchema.RELEASED,
                     is_prerelease=bool(item.get("upcoming_release", False)),
                     published_at=self._parse_datetime(item.get("released_at")),
-                    commit_sha=item.get("commit", {}).get("id") if isinstance(item.get("commit"), dict) else None,
+                    commit_sha=item.get("commit", {}).get("id")
+                    if isinstance(item.get("commit"), dict)
+                    else None,
                     repository_id=repository.id,
                     assets=item.get("assets", {}),
                 )
@@ -144,8 +150,8 @@ class GitLabConnector(SourceConnector):
         releases.sort(key=lambda r: r.published_at or datetime.min, reverse=True)
         return releases
 
-    async def get_assets(self, release: ReleaseSchema, **kwargs: Any) -> List[AssetSchema]:
-        assets: List[AssetSchema] = []
+    async def get_assets(self, release: ReleaseSchema, **kwargs: Any) -> list[AssetSchema]:
+        assets: list[AssetSchema] = []
         raw_assets = release.assets or []
         if isinstance(raw_assets, dict):
             raw_assets = raw_assets.get("links", [])
@@ -173,10 +179,10 @@ class GitLabConnector(SourceConnector):
             )
         return assets
 
-    async def get_metadata(self, repository: RepositorySchema, **kwargs: Any) -> Dict[str, Any]:
+    async def get_metadata(self, repository: RepositorySchema, **kwargs: Any) -> dict[str, Any]:
         project_id = repository.external_id or repository.full_name
         safe = quote(project_id, safe="")
-        metadata: Dict[str, Any] = {}
+        metadata: dict[str, Any] = {}
         try:
             metadata["languages"] = await self._get(f"/projects/{safe}/languages")
         except ConnectorError:
@@ -196,15 +202,20 @@ class GitLabConnector(SourceConnector):
             start = datetime.now()
             await self._get("/version")
             latency = (datetime.now() - start).total_seconds() * 1000
-            self.update_health(healthy=True, latency_ms=latency, last_check=datetime.now(), last_success=datetime.now())
-        except Exception as exc:  # noqa: BLE001
+            self.update_health(
+                healthy=True,
+                latency_ms=latency,
+                last_check=datetime.now(),
+                last_success=datetime.now(),
+            )
+        except Exception as exc:
             self.update_health(healthy=False, last_check=datetime.now(), last_error=str(exc))
         return self._health
 
-    def _to_repository_schema(self, item: Dict[str, Any]) -> RepositorySchema:
+    def _to_repository_schema(self, item: dict[str, Any]) -> RepositorySchema:
         namespace = item.get("namespace", {})
         full_name = item.get("path_with_namespace") or item.get("path") or ""
-        owner = namespace.get("path", "")
+        namespace.get("path", "")
         return RepositorySchema(
             external_id=str(item.get("id", "")),
             full_name=full_name,
@@ -212,7 +223,9 @@ class GitLabConnector(SourceConnector):
             description=item.get("description"),
             homepage=None,
             html_url=item.get("web_url", ""),
-            api_url=item.get("_links", {}).get("self") if isinstance(item.get("_links"), dict) else None,
+            api_url=item.get("_links", {}).get("self")
+            if isinstance(item.get("_links"), dict)
+            else None,
             status=RepositoryStatus.ARCHIVED if item.get("archived") else RepositoryStatus.ACTIVE,
             visibility=RepositoryVisibility(item.get("visibility", "public")),
             is_fork=bool(item.get("fork")),
@@ -226,13 +239,15 @@ class GitLabConnector(SourceConnector):
             created_at_external=self._parse_datetime(item.get("created_at")),
             updated_at_external=self._parse_datetime(item.get("last_activity_at")),
             pushed_at=self._parse_datetime(item.get("last_activity_at")),
-            license_spdx=item.get("license", {}).get("key") if isinstance(item.get("license"), dict) else None,
+            license_spdx=item.get("license", {}).get("key")
+            if isinstance(item.get("license"), dict)
+            else None,
             topics=item.get("topics", []),
             source_type="gitlab",
         )
 
     @staticmethod
-    def _parse_datetime(value: Any) -> Optional[datetime]:
+    def _parse_datetime(value: Any) -> datetime | None:
         if not value:
             return None
         if isinstance(value, datetime):

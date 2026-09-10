@@ -4,17 +4,17 @@ FastAPI application for OmniSource.
 Provides REST API endpoints for OmniStore and other clients.
 """
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
+from omnisource.config.logging import get_logger, setup_logging
 from omnisource.config.settings import get_settings
-from omnisource.config.logging import setup_logging, get_logger
-from omnisource.core.database.base import init_db, close_db
+from omnisource.core.database.base import close_db, init_db
 
 logger = get_logger(__name__)
 
@@ -26,12 +26,12 @@ setup_logging(log_level=get_settings().LOG_LEVEL)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     Application lifespan manager.
-    
+
     Handles startup and shutdown events.
     """
     # Startup
     logger.info("Starting OmniSource API...")
-    
+
     try:
         # Initialize database
         await init_db()
@@ -39,9 +39,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         raise
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down OmniSource API...")
     try:
@@ -90,9 +90,7 @@ async def validation_exception_handler(
 
 
 @app.exception_handler(Exception)
-async def general_exception_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected errors."""
     logger.error(f"Unexpected error: {exc}", exc_info=True)
     return JSONResponse(
@@ -107,16 +105,16 @@ async def general_exception_handler(
 # Include API routes
 from omnisource.api.routes import (
     apps_router,
-    search_router,
-    releases_router,
     categories_router,
-    platforms_router,
     developers_router,
-    trending_router,
-    latest_router,
-    stats_router,
-    health_router,
     feeds_router,
+    health_router,
+    latest_router,
+    platforms_router,
+    releases_router,
+    search_router,
+    stats_router,
+    trending_router,
 )
 
 app.include_router(apps_router, prefix="/api/v1/apps", tags=["apps"])
@@ -130,6 +128,39 @@ app.include_router(latest_router, prefix="/api/v1/latest", tags=["latest"])
 app.include_router(stats_router, prefix="/api/v1/stats", tags=["stats"])
 app.include_router(health_router, prefix="/health", tags=["health"])
 app.include_router(feeds_router, prefix="/feeds", tags=["feeds"])
+
+# Rate limiting, metrics, and API-key auth (order matters: auth added outermost runs first)
+from omnisource.api.metrics import CONTENT_TYPE_LATEST, MetricsMiddleware, render_metrics
+from omnisource.api.rate_limit import RateLimitMiddleware, build_rate_limiter
+from omnisource.api.routes import admin_router, webhooks_router
+from omnisource.api.routes.admin import admin_dashboard_html
+from omnisource.api.security import (
+    configure_app_auth,
+    require_api_key,
+)
+
+app.add_middleware(MetricsMiddleware)
+app.add_middleware(RateLimitMiddleware, limiter=build_rate_limiter())
+configure_app_auth(app)
+
+
+@app.get("/metrics", include_in_schema=False, tags=["observability"])
+async def prometheus_metrics() -> Response:
+    """Prometheus scrape endpoint."""
+    return Response(content=render_metrics(), media_type=CONTENT_TYPE_LATEST)
+
+
+@app.get("/admin", include_in_schema=False, tags=["admin"])
+async def admin_dashboard() -> HTMLResponse:
+    """Admin dashboard UI (data endpoints under /api/v1/admin require an API key)."""
+    return HTMLResponse(content=admin_dashboard_html())
+
+
+# Admin routes require a valid API key; webhook routes verify their own signatures
+app.include_router(
+    admin_router, prefix="/api/v1/admin", tags=["admin"], dependencies=[Depends(require_api_key)]
+)
+app.include_router(webhooks_router, prefix="/api/v1/webhooks", tags=["webhooks"])
 
 
 # Root endpoint

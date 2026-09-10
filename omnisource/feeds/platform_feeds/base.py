@@ -1,7 +1,5 @@
 """Base platform feed definition."""
 
-from typing import List
-
 from omnisource.core.schemas.omnistore import OmniStoreApp
 
 
@@ -10,11 +8,9 @@ class PlatformFeed:
 
     platform_type: str = "all"
 
-    def filter(self, apps: List[OmniStoreApp]) -> List[OmniStoreApp]:
+    def filter(self, apps: list[OmniStoreApp]) -> list[OmniStoreApp]:
         """Filter applications for this platform."""
-        return [
-            app for app in apps if self.platform_type in (app.platforms or [])
-        ]
+        return [app for app in apps if self.platform_type in (app.platforms or [])]
 
 
 class UniversalFeed(PlatformFeed):
@@ -22,5 +18,5 @@ class UniversalFeed(PlatformFeed):
 
     platform_type = "all"
 
-    def filter(self, apps: List[OmniStoreApp]) -> List[OmniStoreApp]:
+    def filter(self, apps: list[OmniStoreApp]) -> list[OmniStoreApp]:
         return list(apps)

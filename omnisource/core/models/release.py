@@ -1,16 +1,31 @@
 """Release and asset models."""
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, JSON, BigInteger, Boolean, DateTime, Enum as SQLEnum, Float, Integer, String, Text, func
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    func,
+)
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from omnisource.core.models.base import Base
-from omnisource.core.models.repository import Repository
 from omnisource.core.models.application import Application
+from omnisource.core.models.base import Base
+
+if TYPE_CHECKING:
+    # Resolved by SQLAlchemy relationship() at runtime; imported for type checkers only.
+    from omnisource.core.models.asset import Asset
+from omnisource.core.models.repository import Repository
 
 
 class ReleaseStatus(str, Enum):
@@ -27,22 +42,22 @@ class PackageType(str, Enum):
 
     # iOS
     IPA = "ipa"
-    
+
     # Android
     APK = "apk"
     AAB = "aab"
-    
+
     # Windows
     EXE = "exe"
     MSI = "msi"
     MSIX = "msix"
     APPX = "appx"
     ZIP = "zip"
-    
+
     # macOS
     DMG = "dmg"
     PKG = "pkg"
-    
+
     # Linux
     DEB = "deb"
     RPM = "rpm"
@@ -52,7 +67,7 @@ class PackageType(str, Enum):
     TAR_GZ = "tar.gz"
     TAR_XZ = "tar.xz"
     SNAP = "snap"
-    
+
     # Other
     BINARY = "binary"
     SOURCE = "source"
@@ -60,7 +75,7 @@ class PackageType(str, Enum):
 
 
 # Platform detection rules
-ASSET_RULES = {
+ASSET_RULES: dict[str, dict[str, list[Any]]] = {
     "ios": {
         "extensions": [".ipa"],
         "package_types": [PackageType.IPA],
@@ -116,7 +131,7 @@ _PLATFORM_KEYWORDS = {
 }
 
 
-def detect_platform(filename: str) -> Optional[str]:
+def detect_platform(filename: str) -> str | None:
     """
     Detect the target platform from an asset filename.
 
@@ -144,7 +159,7 @@ def detect_platform(filename: str) -> Optional[str]:
     return None
 
 
-def detect_architecture(filename: str) -> Optional[str]:
+def detect_architecture(filename: str) -> str | None:
     """
     Detect the CPU architecture from an asset filename.
 
@@ -161,7 +176,7 @@ def detect_architecture(filename: str) -> Optional[str]:
     return None
 
 
-def detect_package_type(filename: str, mime_type: Optional[str] = None) -> PackageType:
+def detect_package_type(filename: str, mime_type: str | None = None) -> PackageType:
     """Detect the package type from a filename extension or MIME type."""
     if not filename:
         return PackageType.BINARY
@@ -223,30 +238,29 @@ class Release(Base):
     )
     external_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     version: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    tag: Mapped[Optional[str]] = mapped_column(String(255), index=True)
-    name: Mapped[Optional[str]] = mapped_column(String(255))
-    body: Mapped[Optional[str]] = mapped_column(Text)
-    body_html: Mapped[Optional[str]] = mapped_column(Text)
+    tag: Mapped[str | None] = mapped_column(String(255), index=True)
+    name: Mapped[str | None] = mapped_column(String(255))
+    body: Mapped[str | None] = mapped_column(Text)
+    body_html: Mapped[str | None] = mapped_column(Text)
     status: Mapped[ReleaseStatus] = mapped_column(
         SQLEnum(ReleaseStatus), default=ReleaseStatus.RELEASED, index=True
     )
     is_prerelease: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_draft: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    created_at_external: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    commit_sha: Mapped[Optional[str]] = mapped_column(String(100))
-    commit_url: Mapped[Optional[str]] = mapped_column(String(500))
-    tarball_url: Mapped[Optional[str]] = mapped_column(String(500))
-    zipball_url: Mapped[Optional[str]] = mapped_column(String(500))
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at_external: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    commit_sha: Mapped[str | None] = mapped_column(String(100))
+    commit_url: Mapped[str | None] = mapped_column(String(500))
+    tarball_url: Mapped[str | None] = mapped_column(String(500))
+    zipball_url: Mapped[str | None] = mapped_column(String(500))
     download_count: Mapped[int] = mapped_column(BigInteger, default=0)
+    # Changelog analysis (computed by the sync pipeline)
+    has_breaking_changes: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    breaking_signals: Mapped[list] = mapped_column(JSON, default=list)
 
     # Relationships
-    application: Mapped[Application] = relationship(
-        "Application", back_populates="releases"
-    )
-    repository: Mapped[Repository] = relationship(
-        "Repository", back_populates="releases"
-    )
+    application: Mapped[Application] = relationship("Application", back_populates="releases")
+    repository: Mapped[Repository] = relationship("Repository", back_populates="releases")
     assets: Mapped[list["ReleaseAsset"]] = relationship(
         "ReleaseAsset", back_populates="release", cascade="all, delete-orphan"
     )
@@ -261,21 +275,15 @@ class ReleaseAsset(Base):
     __tablename__ = "release_assets"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
-    release_id: Mapped[UUID] = mapped_column(
-        ForeignKey("releases.id"), nullable=False, index=True
-    )
+    release_id: Mapped[UUID] = mapped_column(ForeignKey("releases.id"), nullable=False, index=True)
     asset_id: Mapped[UUID] = mapped_column(
         ForeignKey("assets.id"), nullable=False, unique=True, index=True
     )
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
     # Relationships
-    release: Mapped[Release] = relationship(
-        "Release", back_populates="assets"
-    )
-    asset: Mapped["Asset"] = relationship(
-        "Asset", back_populates="release_assets"
-    )
+    release: Mapped[Release] = relationship("Release", back_populates="assets")
+    asset: Mapped["Asset"] = relationship("Asset", back_populates="release_assets")
 
 
 class ReleaseHistory(Base):
@@ -284,20 +292,16 @@ class ReleaseHistory(Base):
     __tablename__ = "release_history"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
-    release_id: Mapped[UUID] = mapped_column(
-        ForeignKey("releases.id"), nullable=False, index=True
-    )
+    release_id: Mapped[UUID] = mapped_column(ForeignKey("releases.id"), nullable=False, index=True)
     version: Mapped[str] = mapped_column(String(100), nullable=False)
     action: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     changed_fields: Mapped[list[str]] = mapped_column(JSON, default=list)
     old_values: Mapped[dict] = mapped_column(JSON, default=dict)
     new_values: Mapped[dict] = mapped_column(JSON, default=dict)
-    changed_by: Mapped[Optional[str]] = mapped_column(String(100))
+    changed_by: Mapped[str | None] = mapped_column(String(100))
     changed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(UTC), nullable=False
     )
 
     # Relationships
-    release: Mapped[Release] = relationship(
-        "Release", back_populates="history"
-    )
+    release: Mapped[Release] = relationship("Release", back_populates="history")

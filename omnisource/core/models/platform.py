@@ -1,13 +1,18 @@
 """Platform and architecture models."""
 
 from enum import Enum
-from typing import Any, Optional
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from sqlalchemy import JSON, Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base
+
+if TYPE_CHECKING:
+    # Resolved by SQLAlchemy relationship() at runtime; imported for type checkers only.
+    from omnisource.core.models.application import Application
+    from omnisource.core.models.asset import Asset
 
 
 class PlatformType(str, Enum):
@@ -64,22 +69,18 @@ class Platform(Base):
     __tablename__ = "platforms"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
-    platform_type: Mapped[str] = mapped_column(
-        String(50), nullable=False, unique=True, index=True
-    )
+    platform_type: Mapped[str] = mapped_column(String(50), nullable=False, unique=True, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     display_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(String(500))
-    icon: Mapped[Optional[str]] = mapped_column(String(100))
+    description: Mapped[str | None] = mapped_column(String(500))
+    icon: Mapped[str | None] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships
     applications: Mapped[list["Application"]] = relationship(
         "Application", secondary="application_platforms", back_populates="platforms"
     )
-    assets: Mapped[list["Asset"]] = relationship(
-        "Asset", back_populates="platform"
-    )
+    assets: Mapped[list["Asset"]] = relationship("Asset", back_populates="platform")
 
 
 class Architecture(Base):
@@ -93,13 +94,11 @@ class Architecture(Base):
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     display_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(String(500))
+    description: Mapped[str | None] = mapped_column(String(500))
     aliases: Mapped[list[str]] = mapped_column(JSON, default=list)
 
     # Relationships
     applications: Mapped[list["Application"]] = relationship(
         "Application", secondary="application_architectures", back_populates="architectures"
     )
-    assets: Mapped[list["Asset"]] = relationship(
-        "Asset", back_populates="architecture"
-    )
+    assets: Mapped[list["Asset"]] = relationship("Asset", back_populates="architecture")

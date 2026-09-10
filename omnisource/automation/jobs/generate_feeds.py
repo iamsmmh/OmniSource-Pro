@@ -1,6 +1,6 @@
 """Feed generation job."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +14,7 @@ async def run_feed_generation(
     session: AsyncSession,
     platform: str = "all",
     **kwargs: Any,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Generate platform feeds."""
     generator = FeedGenerator(session)
     if platform == "all":
@@ -23,4 +23,17 @@ async def run_feed_generation(
         results = [await generator.generate(platform)]
 
     logger.info("Feed generation job completed: %d feeds", len(results))
+
+    # Notify subscribers that feeds changed (best-effort, never raises).
+    try:
+        from omnisource.automation.notify import dispatch_event
+
+        await dispatch_event(
+            session,
+            "feed.updated",
+            {"platforms": [str(r.get("platform", r)) for r in results]},
+        )
+    except Exception as exc:
+        logger.warning("Feed notification failed: %s", exc)
+
     return results

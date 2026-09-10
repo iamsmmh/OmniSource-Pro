@@ -1,7 +1,7 @@
 """Repository filtering policies for discovery."""
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -13,9 +13,9 @@ class RepositoryFilter:
     exclude_archived: bool = True
     exclude_disabled: bool = True
     require_description: bool = False
-    allowed_licenses: Optional[set] = None
+    allowed_licenses: set | None = None
 
-    def should_include(self, repo: Dict[str, Any]) -> bool:
+    def should_include(self, repo: dict[str, Any]) -> bool:
         """Return True if the repository should be ingested."""
         if self.exclude_forks and repo.get("fork"):
             return False
@@ -32,13 +32,17 @@ class RepositoryFilter:
             return False
 
         if self.allowed_licenses is not None:
-            license_spdx = repo.get("license", {}).get("spdx_id") if isinstance(repo.get("license"), dict) else None
+            license_spdx = (
+                repo.get("license", {}).get("spdx_id")
+                if isinstance(repo.get("license"), dict)
+                else None
+            )
             if license_spdx not in self.allowed_licenses:
                 return False
 
         return True
 
-    def apply(self, repositories: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def apply(self, repositories: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Filter a list of raw repository records."""
         return [repo for repo in repositories if self.should_include(repo)]
 

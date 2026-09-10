@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import ConfigDict, Field
@@ -40,17 +40,17 @@ class QuarantineSchema(BaseSchema):
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
-    id: Optional[UUID] = Field(default=None, description="Unique identifier")
-    application_id: Optional[UUID] = Field(default=None, description="Application identifier")
-    asset_id: Optional[UUID] = Field(default=None, description="Asset identifier")
+    id: UUID | None = Field(default=None, description="Unique identifier")
+    application_id: UUID | None = Field(default=None, description="Application identifier")
+    asset_id: UUID | None = Field(default=None, description="Asset identifier")
     reason: str = Field(..., description="Reason")
     status: str = Field(default="quarantined", description="Status")
-    description: Optional[str] = Field(default=None, description="Description")
-    details: Dict[str, Any] = Field(default_factory=dict, description="Details")
-    quarantined_at: Optional[datetime] = Field(default=None, description="Quarantined at")
-    quarantined_by: Optional[str] = Field(default=None, description="Quarantined by")
-    reviewed_at: Optional[datetime] = Field(default=None, description="Reviewed at")
-    reviewed_by: Optional[str] = Field(default=None, description="Reviewed by")
-    review_notes: Optional[str] = Field(default=None, description="Review notes")
-    expires_at: Optional[datetime] = Field(default=None, description="Expires at")
+    description: str | None = Field(default=None, description="Description")
+    details: dict[str, Any] = Field(default_factory=dict, description="Details")
+    quarantined_at: datetime | None = Field(default=None, description="Quarantined at")
+    quarantined_by: str | None = Field(default=None, description="Quarantined by")
+    reviewed_at: datetime | None = Field(default=None, description="Reviewed at")
+    reviewed_by: str | None = Field(default=None, description="Reviewed by")
+    review_notes: str | None = Field(default=None, description="Review notes")
+    expires_at: datetime | None = Field(default=None, description="Expires at")
     is_active: bool = Field(default=True, description="Is active")

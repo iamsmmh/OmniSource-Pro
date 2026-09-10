@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import ConfigDict, Field
@@ -50,25 +50,25 @@ class ReleaseSchema(BaseSchema):
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
-    id: Optional[UUID] = Field(default=None, description="Unique identifier")
+    id: UUID | None = Field(default=None, description="Unique identifier")
     external_id: str = Field(..., description="External identifier")
     version: str = Field(..., description="Version string")
-    tag: Optional[str] = Field(default=None, description="Tag")
-    name: Optional[str] = Field(default=None, description="Name")
-    body: Optional[str] = Field(default=None, description="Release notes")
+    tag: str | None = Field(default=None, description="Tag")
+    name: str | None = Field(default=None, description="Name")
+    body: str | None = Field(default=None, description="Release notes")
     status: ReleaseStatusSchema = Field(default=ReleaseStatusSchema.RELEASED, description="Status")
     is_prerelease: bool = Field(default=False, description="Is prerelease")
     is_draft: bool = Field(default=False, description="Is draft")
-    published_at: Optional[datetime] = Field(default=None, description="Published at")
-    created_at_external: Optional[datetime] = Field(default=None, description="External creation time")
-    commit_sha: Optional[str] = Field(default=None, description="Commit SHA")
-    commit_url: Optional[str] = Field(default=None, description="Commit URL")
-    tarball_url: Optional[str] = Field(default=None, description="Tarball URL")
-    zipball_url: Optional[str] = Field(default=None, description="Zipball URL")
+    published_at: datetime | None = Field(default=None, description="Published at")
+    created_at_external: datetime | None = Field(default=None, description="External creation time")
+    commit_sha: str | None = Field(default=None, description="Commit SHA")
+    commit_url: str | None = Field(default=None, description="Commit URL")
+    tarball_url: str | None = Field(default=None, description="Tarball URL")
+    zipball_url: str | None = Field(default=None, description="Zipball URL")
     download_count: int = Field(default=0, description="Download count")
-    repository_id: Optional[UUID] = Field(default=None, description="Repository identifier")
-    application_id: Optional[UUID] = Field(default=None, description="Application identifier")
-    assets: List[Any] = Field(default_factory=list, description="Release assets (raw)")
+    repository_id: UUID | None = Field(default=None, description="Repository identifier")
+    application_id: UUID | None = Field(default=None, description="Application identifier")
+    assets: list[Any] = Field(default_factory=list, description="Release assets (raw)")
 
 
 class ReleaseAssetSchema(BaseSchema):
@@ -76,7 +76,7 @@ class ReleaseAssetSchema(BaseSchema):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: Optional[UUID] = Field(default=None, description="Unique identifier")
+    id: UUID | None = Field(default=None, description="Unique identifier")
     release_id: UUID = Field(..., description="Release identifier")
     asset_id: UUID = Field(..., description="Asset identifier")
     sort_order: int = Field(default=0, description="Sort order")

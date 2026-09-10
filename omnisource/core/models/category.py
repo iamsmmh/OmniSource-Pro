@@ -1,13 +1,17 @@
 """Category and tag models."""
 
 from enum import Enum
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base
+
+if TYPE_CHECKING:
+    # Resolved by SQLAlchemy relationship() at runtime; imported for type checkers only.
+    from omnisource.core.models.application import Application
 
 
 class CategoryType(str, Enum):
@@ -38,25 +42,61 @@ class CategoryType(str, Enum):
 
 # Standard taxonomy
 TAXONOMY = {
-    CategoryType.AUDIO: {"name": "Audio", "description": "Audio editing, recording, and playback applications"},
-    CategoryType.VIDEO: {"name": "Video", "description": "Video editing, recording, and playback applications"},
-    CategoryType.PHOTOGRAPHY: {"name": "Photography", "description": "Photo editing and management applications"},
-    CategoryType.GRAPHICS: {"name": "Graphics", "description": "Graphic design and illustration applications"},
-    CategoryType.PRODUCTIVITY: {"name": "Productivity", "description": "Productivity and office applications"},
-    CategoryType.DEVELOPER_TOOLS: {"name": "Developer Tools", "description": "Development tools and IDEs"},
+    CategoryType.AUDIO: {
+        "name": "Audio",
+        "description": "Audio editing, recording, and playback applications",
+    },
+    CategoryType.VIDEO: {
+        "name": "Video",
+        "description": "Video editing, recording, and playback applications",
+    },
+    CategoryType.PHOTOGRAPHY: {
+        "name": "Photography",
+        "description": "Photo editing and management applications",
+    },
+    CategoryType.GRAPHICS: {
+        "name": "Graphics",
+        "description": "Graphic design and illustration applications",
+    },
+    CategoryType.PRODUCTIVITY: {
+        "name": "Productivity",
+        "description": "Productivity and office applications",
+    },
+    CategoryType.DEVELOPER_TOOLS: {
+        "name": "Developer Tools",
+        "description": "Development tools and IDEs",
+    },
     CategoryType.EDUCATION: {"name": "Education", "description": "Educational applications"},
-    CategoryType.COMMUNICATION: {"name": "Communication", "description": "Communication and messaging applications"},
-    CategoryType.SOCIAL: {"name": "Social", "description": "Social media and networking applications"},
+    CategoryType.COMMUNICATION: {
+        "name": "Communication",
+        "description": "Communication and messaging applications",
+    },
+    CategoryType.SOCIAL: {
+        "name": "Social",
+        "description": "Social media and networking applications",
+    },
     CategoryType.INTERNET: {"name": "Internet", "description": "Internet and web applications"},
     CategoryType.BROWSERS: {"name": "Browsers", "description": "Web browsers"},
     CategoryType.SECURITY: {"name": "Security", "description": "Security and privacy applications"},
     CategoryType.NETWORKING: {"name": "Networking", "description": "Network tools and utilities"},
     CategoryType.UTILITIES: {"name": "Utilities", "description": "Utility applications"},
     CategoryType.GAMING: {"name": "Gaming", "description": "Games and gaming utilities"},
-    CategoryType.BOOKS: {"name": "Books", "description": "E-book readers and literature applications"},
-    CategoryType.FINANCE: {"name": "Finance", "description": "Financial and accounting applications"},
-    CategoryType.SCIENCE: {"name": "Science", "description": "Scientific and mathematical applications"},
-    CategoryType.SYSTEM_TOOLS: {"name": "System Tools", "description": "System utilities and tools"},
+    CategoryType.BOOKS: {
+        "name": "Books",
+        "description": "E-book readers and literature applications",
+    },
+    CategoryType.FINANCE: {
+        "name": "Finance",
+        "description": "Financial and accounting applications",
+    },
+    CategoryType.SCIENCE: {
+        "name": "Science",
+        "description": "Scientific and mathematical applications",
+    },
+    CategoryType.SYSTEM_TOOLS: {
+        "name": "System Tools",
+        "description": "System utilities and tools",
+    },
     CategoryType.AI: {"name": "AI", "description": "Artificial intelligence applications"},
     CategoryType.OTHER: {"name": "Other", "description": "Other applications"},
 }
@@ -68,16 +108,12 @@ class Category(Base):
     __tablename__ = "categories"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
-    category_type: Mapped[str] = mapped_column(
-        String(50), nullable=False, unique=True, index=True
-    )
+    category_type: Mapped[str] = mapped_column(String(50), nullable=False, unique=True, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     slug: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
-    description: Mapped[Optional[str]] = mapped_column(Text)
-    icon: Mapped[Optional[str]] = mapped_column(String(100))
-    parent_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("categories.id"), index=True
-    )
+    description: Mapped[str | None] = mapped_column(Text)
+    icon: Mapped[str | None] = mapped_column(String(100))
+    parent_id: Mapped[UUID | None] = mapped_column(ForeignKey("categories.id"), index=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
@@ -98,7 +134,7 @@ class Tag(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
     slug: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
-    description: Mapped[Optional[str]] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text)
     usage_count: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 

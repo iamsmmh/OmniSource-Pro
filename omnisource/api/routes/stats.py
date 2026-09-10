@@ -3,8 +3,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 
-from omnisource.config.logging import get_logger
 from omnisource.api.dependencies import get_db
+from omnisource.config.logging import get_logger
 from omnisource.core.models.application import Application
 from omnisource.core.models.asset import Asset
 from omnisource.core.models.category import Category
@@ -22,11 +22,10 @@ router = APIRouter()
 async def stats(session=Depends(get_db)):
     """Return catalog-wide statistics."""
     try:
+
         async def _count(model, *filters):
             return int(
-                await session.scalar(
-                    select(func.count()).select_from(model).where(*filters)
-                )
+                await session.scalar(select(func.count()).select_from(model).where(*filters))
             )
 
         return {
@@ -44,4 +43,4 @@ async def stats(session=Depends(get_db)):
         }
     except Exception as e:
         logger.error(f"Failed to get stats: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

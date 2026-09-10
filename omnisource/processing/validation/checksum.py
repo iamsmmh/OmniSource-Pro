@@ -1,7 +1,6 @@
 """Checksum computation and verification utilities."""
 
 import hashlib
-from typing import Optional
 
 
 def hash_bytes(data: bytes, algorithm: str = "sha256") -> str:
@@ -29,7 +28,7 @@ def verify_checksum(data: bytes, expected: str, algorithm: str = "sha256") -> bo
     return actual.lower() == expected.strip().lower()
 
 
-def is_valid_hex_digest(value: Optional[str], algorithm: str = "sha256") -> bool:
+def is_valid_hex_digest(value: str | None, algorithm: str = "sha256") -> bool:
     """Check whether a string looks like a valid hex digest for an algorithm."""
     if not value:
         return False

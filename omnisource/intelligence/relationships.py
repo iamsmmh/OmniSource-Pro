@@ -1,7 +1,7 @@
 """Application relationship detection."""
 
-from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from collections.abc import Iterable
+from dataclasses import dataclass
 
 from omnisource.processing.deduplication import jaccard
 
@@ -17,7 +17,7 @@ class DetectedRelationship:
     method: str
 
 
-def _token_set(tags: Optional[Iterable[str]], categories: Optional[Iterable[str]]) -> Set[str]:
+def _token_set(tags: Iterable[str] | None, categories: Iterable[str] | None) -> set[str]:
     return {str(t).strip().lower() for t in (tags or [])} | {
         str(c).strip().lower() for c in (categories or [])
     }
@@ -36,9 +36,9 @@ class RelationshipDetector:
 
     def compare(
         self,
-        app_a: Dict,
-        app_b: Dict,
-    ) -> Optional[DetectedRelationship]:
+        app_a: dict,
+        app_b: dict,
+    ) -> DetectedRelationship | None:
         """Compare two application profiles and return a relationship if any."""
         tokens_a = _token_set(app_a.get("tags"), app_a.get("categories"))
         tokens_b = _token_set(app_b.get("tags"), app_b.get("categories"))
@@ -62,9 +62,9 @@ class RelationshipDetector:
             method="token_overlap",
         )
 
-    def detect(self, apps: List[Dict]) -> List[DetectedRelationship]:
+    def detect(self, apps: list[dict]) -> list[DetectedRelationship]:
         """Detect relationships among a list of application profiles."""
-        relationships: List[DetectedRelationship] = []
+        relationships: list[DetectedRelationship] = []
         for i, app_a in enumerate(apps):
             for app_b in apps[i + 1 :]:
                 rel = self.compare(app_a, app_b)

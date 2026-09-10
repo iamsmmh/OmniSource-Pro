@@ -3,8 +3,6 @@ GitHub-specific models for the connector.
 """
 
 from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -16,7 +14,7 @@ class GitHubUser(BaseModel):
     id: int = Field(..., description="User ID")
     node_id: str = Field(..., description="Node ID")
     avatar_url: HttpUrl = Field(..., description="Avatar URL")
-    gravatar_id: Optional[str] = Field(default=None, description="Gravatar ID")
+    gravatar_id: str | None = Field(default=None, description="Gravatar ID")
     url: HttpUrl = Field(..., description="User URL")
     html_url: HttpUrl = Field(..., description="HTML URL")
     followers_url: HttpUrl = Field(..., description="Followers URL")
@@ -30,14 +28,14 @@ class GitHubUser(BaseModel):
     received_events_url: HttpUrl = Field(..., description="Received events URL")
     type: str = Field(..., description="User type")
     site_admin: bool = Field(default=False, description="Site admin")
-    name: Optional[str] = Field(default=None, description="Full name")
-    company: Optional[str] = Field(default=None, description="Company")
-    blog: Optional[str] = Field(default=None, description="Blog URL")
-    location: Optional[str] = Field(default=None, description="Location")
-    email: Optional[str] = Field(default=None, description="Email")
-    hireable: Optional[bool] = Field(default=None, description="Hireable")
-    bio: Optional[str] = Field(default=None, description="Bio")
-    twitter_username: Optional[str] = Field(default=None, description="Twitter username")
+    name: str | None = Field(default=None, description="Full name")
+    company: str | None = Field(default=None, description="Company")
+    blog: str | None = Field(default=None, description="Blog URL")
+    location: str | None = Field(default=None, description="Location")
+    email: str | None = Field(default=None, description="Email")
+    hireable: bool | None = Field(default=None, description="Hireable")
+    bio: str | None = Field(default=None, description="Bio")
+    twitter_username: str | None = Field(default=None, description="Twitter username")
     public_repos: int = Field(default=0, description="Public repositories count")
     public_gists: int = Field(default=0, description="Public gists count")
     followers: int = Field(default=0, description="Followers count")
@@ -52,7 +50,7 @@ class GitHubLicense(BaseModel):
     key: str = Field(..., description="License key")
     name: str = Field(..., description="License name")
     spdx_id: str = Field(..., description="SPDX ID")
-    url: Optional[HttpUrl] = Field(default=None, description="License URL")
+    url: HttpUrl | None = Field(default=None, description="License URL")
     node_id: str = Field(..., description="Node ID")
 
 
@@ -66,7 +64,7 @@ class GitHubRepository(BaseModel):
     private: bool = Field(default=False, description="Is private")
     owner: GitHubUser = Field(..., description="Repository owner")
     html_url: HttpUrl = Field(..., description="HTML URL")
-    description: Optional[str] = Field(default=None, description="Description")
+    description: str | None = Field(default=None, description="Description")
     fork: bool = Field(default=False, description="Is fork")
     url: HttpUrl = Field(..., description="API URL")
     forks_url: HttpUrl = Field(..., description="Forks URL")
@@ -112,11 +110,11 @@ class GitHubRepository(BaseModel):
     ssh_url: str = Field(..., description="SSH URL")
     clone_url: HttpUrl = Field(..., description="Clone URL")
     svn_url: HttpUrl = Field(..., description="SVN URL")
-    homepage: Optional[HttpUrl] = Field(default=None, description="Homepage")
+    homepage: HttpUrl | None = Field(default=None, description="Homepage")
     size: int = Field(default=0, description="Size in KB")
     stargazers_count: int = Field(default=0, description="Stars count")
     watchers_count: int = Field(default=0, description="Watchers count")
-    language: Optional[str] = Field(default=None, description="Primary language")
+    language: str | None = Field(default=None, description="Primary language")
     has_issues: bool = Field(default=False, description="Has issues enabled")
     has_projects: bool = Field(default=False, description="Has projects enabled")
     has_downloads: bool = Field(default=False, description="Has downloads enabled")
@@ -124,15 +122,17 @@ class GitHubRepository(BaseModel):
     has_pages: bool = Field(default=False, description="Has pages enabled")
     has_discussions: bool = Field(default=False, description="Has discussions enabled")
     forks_count: int = Field(default=0, description="Forks count")
-    mirror_url: Optional[HttpUrl] = Field(default=None, description="Mirror URL")
+    mirror_url: HttpUrl | None = Field(default=None, description="Mirror URL")
     archived: bool = Field(default=False, description="Is archived")
     disabled: bool = Field(default=False, description="Is disabled")
     open_issues_count: int = Field(default=0, description="Open issues count")
-    license: Optional[GitHubLicense] = Field(default=None, description="License")
+    license: GitHubLicense | None = Field(default=None, description="License")
     allow_forking: bool = Field(default=True, description="Allow forking")
     is_template: bool = Field(default=False, description="Is template")
-    web_commit_signoff_required: bool = Field(default=False, description="Web commit signoff required")
-    topics: List[str] = Field(default_factory=list, description="Repository topics")
+    web_commit_signoff_required: bool = Field(
+        default=False, description="Web commit signoff required"
+    )
+    topics: list[str] = Field(default_factory=list, description="Repository topics")
     visibility: str = Field(default="public", description="Visibility")
     forks: int = Field(default=0, description="Forks count")
     open_issues: int = Field(default=0, description="Open issues count")
@@ -148,14 +148,14 @@ class GitHubAsset(BaseModel):
     id: int = Field(..., description="Asset ID")
     node_id: str = Field(..., description="Node ID")
     name: str = Field(..., description="Asset name")
-    label: Optional[str] = Field(default=None, description="Asset label")
+    label: str | None = Field(default=None, description="Asset label")
     state: str = Field(..., description="Asset state")
     content_type: str = Field(..., description="Content type")
     size: int = Field(..., description="Size in bytes")
     download_count: int = Field(default=0, description="Download count")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Update timestamp")
-    uploader: Optional[GitHubUser] = Field(default=None, description="Uploader")
+    uploader: GitHubUser | None = Field(default=None, description="Uploader")
 
 
 class GitHubRelease(BaseModel):
@@ -165,20 +165,20 @@ class GitHubRelease(BaseModel):
     html_url: HttpUrl = Field(..., description="Release HTML URL")
     assets_url: HttpUrl = Field(..., description="Assets URL")
     upload_url: str = Field(..., description="Upload URL")
-    tarball_url: Optional[HttpUrl] = Field(default=None, description="Tarball URL")
-    zipball_url: Optional[HttpUrl] = Field(default=None, description="Zipball URL")
+    tarball_url: HttpUrl | None = Field(default=None, description="Tarball URL")
+    zipball_url: HttpUrl | None = Field(default=None, description="Zipball URL")
     id: int = Field(..., description="Release ID")
     node_id: str = Field(..., description="Node ID")
     tag_name: str = Field(..., description="Tag name")
     target_commitish: str = Field(..., description="Target commitish")
-    name: Optional[str] = Field(default=None, description="Release name")
-    body: Optional[str] = Field(default=None, description="Release body")
+    name: str | None = Field(default=None, description="Release name")
+    body: str | None = Field(default=None, description="Release body")
     draft: bool = Field(default=False, description="Is draft")
     prerelease: bool = Field(default=False, description="Is prerelease")
     created_at: datetime = Field(..., description="Creation timestamp")
     published_at: datetime = Field(..., description="Publication timestamp")
-    author: Optional[GitHubUser] = Field(default=None, description="Author")
-    assets: List[GitHubAsset] = Field(default_factory=list, description="Release assets")
+    author: GitHubUser | None = Field(default=None, description="Author")
+    assets: list[GitHubAsset] = Field(default_factory=list, description="Release assets")
 
 
 class GitHubSearchResult(BaseModel):
@@ -186,4 +186,4 @@ class GitHubSearchResult(BaseModel):
 
     total_count: int = Field(..., description="Total count")
     incomplete_results: bool = Field(default=False, description="Incomplete results")
-    items: List[GitHubRepository] = Field(default_factory=list, description="Repository items")
+    items: list[GitHubRepository] = Field(default_factory=list, description="Repository items")

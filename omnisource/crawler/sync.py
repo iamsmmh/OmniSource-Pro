@@ -1,6 +1,7 @@
 """Repository synchronization service: releases, assets, applications."""
 
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -15,7 +16,7 @@ from omnisource.core.models.application import (
     OpenSourceStatus,
     application_platforms,
 )
-from omnisource.core.models.asset import Asset, AssetStatus, AssetSource
+from omnisource.core.models.asset import Asset, AssetSource, AssetStatus
 from omnisource.core.models.category import Category, Tag
 from omnisource.core.models.developer import Developer
 from omnisource.core.models.license import License
@@ -31,6 +32,7 @@ from omnisource.core.schemas.repository import RepositorySchema
 from omnisource.crawler.policies import ProcessingPolicies
 from omnisource.intelligence.scoring import ScoringEngine
 from omnisource.processing.categorization import categorize
+from omnisource.processing.changelog import analyze_release
 from omnisource.processing.deduplication import slugify
 from omnisource.processing.license_engine import normalize_license
 from omnisource.processing.validation.asset_validator import validate_asset
@@ -38,23 +40,32 @@ from omnisource.processing.validation.asset_validator import validate_asset
 logger = get_logger(__name__)
 
 
+def _naive(value: datetime) -> datetime:
+    """Normalize to naive UTC so aware/naive values compare safely (SQLite)."""
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(UTC).replace(tzinfo=None)
+
+
 class RepositorySyncService:
     """Synchronizes repositories, releases, assets, and applications."""
 
-    def __init__(self, session: AsyncSession, policies: Optional[ProcessingPolicies] = None):
+    def __init__(self, session: AsyncSession, policies: ProcessingPolicies | None = None):
         self.session = session
         self.policies = policies or ProcessingPolicies.from_settings()
         self.scoring = ScoringEngine()
 
         # In-session caches avoid duplicate lookups/inserts within a batch.
-        self._developer_cache: Dict[str, Developer] = {}
-        self._license_cache: Dict[str, License] = {}
-        self._category_cache: Dict[str, Category] = {}
-        self._tag_cache: Dict[str, Tag] = {}
-        self._platform_cache: Dict[str, Platform] = {}
-        self._architecture_cache: Dict[str, Architecture] = {}
+        self._developer_cache: dict[str, Developer] = {}
+        self._license_cache: dict[str, License] = {}
+        self._category_cache: dict[str, Category] = {}
+        self._tag_cache: dict[str, Tag] = {}
+        self._platform_cache: dict[str, Platform] = {}
+        self._architecture_cache: dict[str, Architecture] = {}
 
-    async def sync_source(self, source_type: str = "github", limit: Optional[int] = None) -> Dict[str, Any]:
+    async def sync_source(
+        self, source_type: str = "github", limit: int | None = None
+    ) -> dict[str, Any]:
         """Synchronize all repositories for a source type."""
         source_repo = SourceRepository(self.session)
         source = await source_repo.get_by_type(SourceType(source_type))
@@ -71,8 +82,12 @@ class RepositorySyncService:
 
         total_releases = 0
         total_assets = 0
+        skipped = 0
         try:
             for repository in repositories:
+                if self.policies.skip_unchanged and await self._can_skip(connector, repository):
+                    skipped += 1
+                    continue
                 result = await self.sync_repository(connector, repository)
                 total_releases += result["releases"]
                 total_assets += result["assets"]
@@ -83,21 +98,62 @@ class RepositorySyncService:
         return {
             "source": source_type,
             "repositories": len(repositories),
+            "skipped_unchanged": skipped,
             "releases": total_releases,
             "assets": total_assets,
         }
+
+    async def _can_skip(self, connector: SourceConnector, repository: Repository) -> bool:
+        """Delta-sync check: skip repos whose pushed_at is unchanged and fresh.
+
+        Compares the connector's live ``pushed_at`` with
+        ``repository.last_synced_pushed_at``; a repo is skipped only when it
+        has not been pushed since the last successful sync *and* the last
+        sync happened within ``max_sync_age_hours`` (so metadata such as
+        stars/description is still refreshed weekly).
+        """
+        try:
+            fresh = await connector.get_repository(repository.external_id or repository.full_name)
+        except Exception as exc:
+            logger.warning("Delta check failed for %s: %s", repository.full_name, exc)
+            return False
+
+        # Refresh lightweight fields even when skipping the release pipeline.
+        for field in ("stars", "forks", "open_issues", "description"):
+            value = getattr(fresh, field, None)
+            if value is not None and getattr(repository, field, None) != value:
+                setattr(repository, field, value)
+
+        fresh_pushed = fresh.pushed_at
+        unchanged = (
+            fresh_pushed is not None
+            and repository.last_synced_pushed_at is not None
+            and _naive(fresh_pushed) <= _naive(repository.last_synced_pushed_at)
+        )
+        synced_recently = repository.synced_at is not None and _naive(
+            repository.synced_at
+        ) >= _naive(datetime.now(UTC) - timedelta(hours=self.policies.max_sync_age_hours))
+
+        if unchanged and synced_recently:
+            repository.synced_at = datetime.now(UTC)
+            return True
+
+        repository.pushed_at = fresh_pushed
+        repository.last_synced_pushed_at = fresh_pushed
+        repository.synced_at = datetime.now(UTC)
+        return False
 
     async def sync_repository(
         self,
         connector: SourceConnector,
         repository: Repository,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Synchronize releases and assets for a single repository."""
         repo_schema = RepositorySchema.model_validate(repository)
 
         try:
             releases = await connector.get_releases(repo_schema)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("Failed to fetch releases for %s: %s", repository.full_name, exc)
             return {"releases": 0, "assets": 0}
 
@@ -105,9 +161,17 @@ class RepositorySyncService:
 
         release_repo = ReleaseRepository(self.session)
         asset_count = 0
+        new_releases: list[Release] = []
+        previous_version: str | None = None
         for release_schema in releases[: self.policies.max_releases_per_repo]:
             status_value = getattr(release_schema.status, "value", release_schema.status)
-            release = await release_repo.upsert_release(
+            changelog = analyze_release(
+                previous_version=previous_version,
+                release_version=release_schema.version,
+                release_notes=release_schema.body,
+            )
+            previous_version = release_schema.version
+            release, release_created = await release_repo.upsert_release(
                 application_id=app.id,
                 repository_id=repository.id,
                 external_id=release_schema.external_id,
@@ -125,8 +189,12 @@ class RepositorySyncService:
                     "tarball_url": release_schema.tarball_url,
                     "zipball_url": release_schema.zipball_url,
                     "download_count": release_schema.download_count,
+                    "has_breaking_changes": changelog["has_breaking_changes"],
+                    "breaking_signals": changelog["signals"],
                 },
             )
+            if release_created:
+                new_releases.append(release)
 
             assets = await connector.get_assets(release_schema)
             for asset_schema in assets[: self.policies.max_assets_per_release]:
@@ -135,6 +203,29 @@ class RepositorySyncService:
                 asset_count += 1
 
         await self._compute_scores(app, repository)
+        now = datetime.now(UTC)
+        repository.synced_at = now
+        repository.last_synced_pushed_at = repository.pushed_at or now
+
+        # Push notifications for newly ingested releases (best-effort).
+        if new_releases:
+            from omnisource.automation.notify import dispatch_event
+
+            for release_row in new_releases:
+                try:
+                    await dispatch_event(
+                        self.session,
+                        "release.created",
+                        {
+                            "application_id": str(app.id),
+                            "app_id": app.app_id,
+                            "version": release_row.version,
+                            "has_breaking_changes": bool(release_row.has_breaking_changes),
+                        },
+                    )
+                except Exception as exc:  # never block sync on notification errors
+                    logger.warning("Release notification failed: %s", exc)
+
         return {"releases": len(releases), "assets": asset_count}
 
     async def _ensure_application(self, repository: Repository) -> Application:
@@ -212,9 +303,7 @@ class RepositorySyncService:
     async def _get_or_create_license(self, spdx_id: str) -> License:
         if spdx_id in self._license_cache:
             return self._license_cache[spdx_id]
-        result = await self.session.execute(
-            select(License).where(License.spdx_id == spdx_id)
-        )
+        result = await self.session.execute(select(License).where(License.spdx_id == spdx_id))
         license_obj = result.scalar_one_or_none()
         if license_obj is None:
             license_obj = License(
@@ -228,7 +317,7 @@ class RepositorySyncService:
         self._license_cache[spdx_id] = license_obj
         return license_obj
 
-    async def _classify(self, app: Application, topics: List[str]) -> None:
+    async def _classify(self, app: Application, topics: list[str]) -> None:
         category_types = categorize(topics=topics, description=app.short_description)
         for category_type in category_types:
             category = await self._get_or_create_category(category_type)
@@ -273,7 +362,7 @@ class RepositorySyncService:
         self,
         app: Application,
         release: Release,
-        data: Dict[str, Any],
+        data: dict[str, Any],
     ) -> Asset:
         outcome = validate_asset(data)
         status = AssetStatus(outcome.status)
@@ -372,10 +461,10 @@ class RepositorySyncService:
         metadata = await repository.awaitable_attrs.metadata_obj
 
         release_objs = (
-            await self.session.execute(
-                select(Release).where(Release.application_id == app.id)
-            )
-        ).scalars().all()
+            (await self.session.execute(select(Release).where(Release.application_id == app.id)))
+            .scalars()
+            .all()
+        )
 
         platform_count = int(
             await self.session.scalar(

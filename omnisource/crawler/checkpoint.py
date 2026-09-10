@@ -1,22 +1,27 @@
 """Checkpoint persistence and resumption for ingestion."""
 
-from datetime import datetime, UTC
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from omnisource.core.repositories.sync import SyncRepository
 
+if TYPE_CHECKING:
+    from omnisource.core.models.sync import SyncState
+
 
 class Checkpoint:
     """Tracks and persists ingestion progress for resumable discovery."""
 
-    def __init__(self, session: AsyncSession, source_id: Optional[UUID], repository_id: Optional[UUID] = None):
+    def __init__(
+        self, session: AsyncSession, source_id: UUID | None, repository_id: UUID | None = None
+    ):
         self._repo = SyncRepository(session)
         self.source_id = source_id
         self.repository_id = repository_id
-        self._state = None
+        self._state: SyncState | None = None
 
     async def load(self) -> "Checkpoint":
         """Load (or create) the persisted sync state."""
@@ -27,31 +32,33 @@ class Checkpoint:
         return self
 
     @property
-    def cursor(self) -> Optional[str]:
+    def cursor(self) -> str | None:
         return self._state.cursor if self._state else None
 
     @property
-    def etag(self) -> Optional[str]:
+    def etag(self) -> str | None:
         return self._state.etag if self._state else None
 
     @property
-    def state(self):
+    def state(self) -> "SyncState | None":
         return self._state
 
     async def save(
         self,
-        cursor: Optional[str] = None,
-        etag: Optional[str] = None,
-        discovered: Optional[int] = None,
-        updated: Optional[int] = None,
-        failed: Optional[int] = None,
-        error: Optional[str] = None,
+        cursor: str | None = None,
+        etag: str | None = None,
+        discovered: int | None = None,
+        updated: int | None = None,
+        failed: int | None = None,
+        error: str | None = None,
     ) -> None:
         """Persist progress updates."""
         if self._state is None:
             await self.load()
+        if self._state is None:  # pragma: no cover - defensive
+            raise RuntimeError("Checkpoint state failed to load")
 
-        values: Dict[str, Any] = {
+        values: dict[str, Any] = {
             "last_attempt": datetime.now(UTC),
         }
         if cursor is not None:

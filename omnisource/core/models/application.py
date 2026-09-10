@@ -1,14 +1,35 @@
 """Application models for software applications."""
 
-from datetime import datetime, UTC
 from enum import Enum
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, Boolean, DateTime, Enum as SQLEnum, Float, Integer, String, Text, func
+from sqlalchemy import Boolean, Column, Float, ForeignKey, String, Table, Text
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base
+
+if TYPE_CHECKING:
+    # Resolved by SQLAlchemy relationship() at runtime; imported for type checkers only.
+    from omnisource.core.models.architecture import Architecture
+    from omnisource.core.models.category import Category
+    from omnisource.core.models.developer import Developer
+    from omnisource.core.models.icon import Icon
+    from omnisource.core.models.license import License
+    from omnisource.core.models.organization import Organization
+    from omnisource.core.models.platform import Platform
+    from omnisource.core.models.popularityscore import PopularityScore
+    from omnisource.core.models.qualityscore import QualityScore
+    from omnisource.core.models.quarantine import Quarantine
+    from omnisource.core.models.release import Release
+    from omnisource.core.models.repository import Repository
+    from omnisource.core.models.screenshot import Screenshot
+    from omnisource.core.models.securityscan import SecurityScan
+    from omnisource.core.models.syncjob import SyncJob
+    from omnisource.core.models.tag import Tag
+    from omnisource.core.models.trustscore import TrustScore
+    from omnisource.core.models.validationresult import ValidationResult
 
 
 class ApplicationStatus(str, Enum):
@@ -50,10 +71,10 @@ class Application(Base):
     app_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     slug: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    short_description: Mapped[Optional[str]] = mapped_column(String(500))
-    long_description: Mapped[Optional[str]] = mapped_column(Text)
-    homepage: Mapped[Optional[str]] = mapped_column(String(500))
-    documentation_url: Mapped[Optional[str]] = mapped_column(String(500))
+    short_description: Mapped[str | None] = mapped_column(String(500))
+    long_description: Mapped[str | None] = mapped_column(Text)
+    homepage: Mapped[str | None] = mapped_column(String(500))
+    documentation_url: Mapped[str | None] = mapped_column(String(500))
     status: Mapped[ApplicationStatus] = mapped_column(
         SQLEnum(ApplicationStatus), default=ApplicationStatus.DRAFT, index=True
     )
@@ -62,15 +83,9 @@ class Application(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_featured: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    developer_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("developers.id"), index=True
-    )
-    organization_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("organizations.id"), index=True
-    )
-    license_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("licenses.id"), index=True
-    )
+    developer_id: Mapped[UUID | None] = mapped_column(ForeignKey("developers.id"), index=True)
+    organization_id: Mapped[UUID | None] = mapped_column(ForeignKey("organizations.id"), index=True)
+    license_id: Mapped[UUID | None] = mapped_column(ForeignKey("licenses.id"), index=True)
 
     # Relationships
     repositories: Mapped[list["Repository"]] = relationship(
@@ -82,9 +97,7 @@ class Application(Base):
     organization: Mapped[Optional["Organization"]] = relationship(
         "Organization", back_populates="applications"
     )
-    license: Mapped[Optional["License"]] = relationship(
-        "License", back_populates="applications"
-    )
+    license: Mapped[Optional["License"]] = relationship("License", back_populates="applications")
     platforms: Mapped[list["Platform"]] = relationship(
         "Platform", secondary="application_platforms", back_populates="applications"
     )
@@ -157,8 +170,8 @@ class ApplicationRelationship(Base):
         SQLEnum(ApplicationRelationshipType), nullable=False, index=True
     )
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
-    method: Mapped[Optional[str]] = mapped_column(String(100))
-    created_by: Mapped[Optional[str]] = mapped_column(String(100))
+    method: Mapped[str | None] = mapped_column(String(100))
+    created_by: Mapped[str | None] = mapped_column(String(100))
 
     # Relationships
     from_app: Mapped[Application] = relationship(
@@ -170,8 +183,6 @@ class ApplicationRelationship(Base):
 
 
 # Association tables for many-to-many relationships
-from sqlalchemy import Column, ForeignKey, Table
-
 application_repositories = Table(
     "application_repositories",
     Base.metadata,
@@ -208,4 +219,3 @@ application_tags = Table(
     Column("application_id", ForeignKey("applications.id", ondelete="CASCADE"), primary_key=True),
     Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
 )
-

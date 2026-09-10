@@ -1,7 +1,7 @@
 """Popularity score calculation."""
 
 import math
-from typing import Any, Dict
+from typing import Any
 
 
 def _log_scale(value: int) -> float:
@@ -11,7 +11,7 @@ def _log_scale(value: int) -> float:
     return min(1.0, math.log10(value + 1) / 4.0)  # ~10k -> 1.0
 
 
-def compute_popularity(metrics: Dict[str, Any]) -> Dict[str, Any]:
+def compute_popularity(metrics: dict[str, Any]) -> dict[str, Any]:
     """Compute a popularity score (0-100) and factor breakdown.
 
     Supported metric keys: ``stars``, ``forks``, ``downloads``,

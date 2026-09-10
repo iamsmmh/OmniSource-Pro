@@ -1,12 +1,10 @@
 """Categories API routes for OmniSource."""
 
-from typing import List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 
-from omnisource.config.logging import get_logger
 from omnisource.api.dependencies import get_db
+from omnisource.config.logging import get_logger
 from omnisource.core.models.application import application_categories
 from omnisource.core.models.category import Category
 from omnisource.core.schemas.category import CategorySchema
@@ -16,7 +14,7 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.get("", response_model=List[CategorySchema])
+@router.get("", response_model=list[CategorySchema])
 async def list_categories(
     active_only: bool = Query(default=True, description="Only active categories"),
     session=Depends(get_db),
@@ -30,16 +28,14 @@ async def list_categories(
         return list(result.scalars().all())
     except Exception as e:
         logger.error(f"Failed to list categories: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/{slug}")
 async def get_category(slug: str, session=Depends(get_db)):
     """Get a single category by slug, including app count."""
     try:
-        result = await session.execute(
-            select(Category).where(Category.slug == slug)
-        )
+        result = await session.execute(select(Category).where(Category.slug == slug))
         category = result.scalar_one_or_none()
         if category is None:
             raise HTTPException(status_code=404, detail="Category not found")
@@ -57,4 +53,4 @@ async def get_category(slug: str, session=Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Failed to get category {slug}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

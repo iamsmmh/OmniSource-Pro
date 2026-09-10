@@ -7,9 +7,9 @@ from omnisource.crawler.policies import ProcessingPolicies
 from omnisource.crawler.scheduler import AsyncScheduler
 
 __all__ = [
+    "AsyncScheduler",
     "Checkpoint",
     "DiscoveryService",
-    "RepositoryFilter",
     "ProcessingPolicies",
-    "AsyncScheduler",
+    "RepositoryFilter",
 ]

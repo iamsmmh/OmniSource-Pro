@@ -25,9 +25,7 @@ class Base(AsyncAttrs, DeclarativeBase):
         nullable=False,
     )
 
-    is_deleted: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     def __repr__(self) -> str:
         """String representation of the model."""

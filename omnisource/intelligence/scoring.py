@@ -1,6 +1,6 @@
 """Unified scoring engine."""
 
-from typing import Any, Dict
+from typing import Any
 
 from omnisource.intelligence.popularity import compute_popularity
 from omnisource.intelligence.quality_scoring import compute_quality
@@ -10,16 +10,16 @@ from omnisource.intelligence.trust_scoring import compute_trust
 class ScoringEngine:
     """Computes trust, quality, and popularity scores for applications."""
 
-    def compute_trust(self, metrics: Dict[str, Any]) -> Dict[str, Any]:
+    def compute_trust(self, metrics: dict[str, Any]) -> dict[str, Any]:
         return compute_trust(metrics)
 
-    def compute_quality(self, metrics: Dict[str, Any]) -> Dict[str, Any]:
+    def compute_quality(self, metrics: dict[str, Any]) -> dict[str, Any]:
         return compute_quality(metrics)
 
-    def compute_popularity(self, metrics: Dict[str, Any]) -> Dict[str, Any]:
+    def compute_popularity(self, metrics: dict[str, Any]) -> dict[str, Any]:
         return compute_popularity(metrics)
 
-    def compute_all(self, metrics: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    def compute_all(self, metrics: dict[str, Any]) -> dict[str, dict[str, Any]]:
         """Compute all three scores from a single metrics dictionary."""
         return {
             "trust": compute_trust(metrics),
@@ -47,7 +47,7 @@ class ScoringEngine:
         security_flags: int = 0,
         metadata_completeness: float = 0.7,
         omnistore_interactions: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build a metrics dictionary for the scoring functions."""
         return {
             "open_source": open_source,

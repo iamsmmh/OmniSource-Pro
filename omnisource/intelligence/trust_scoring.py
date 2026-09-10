@@ -1,10 +1,10 @@
 """Trust score calculation."""
 
-from datetime import datetime, UTC
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 
-def _days_since(value: Optional[datetime]) -> Optional[float]:
+def _days_since(value: datetime | None) -> float | None:
     if value is None:
         return None
     now = datetime.now(UTC)
@@ -13,14 +13,14 @@ def _days_since(value: Optional[datetime]) -> Optional[float]:
     return max(0.0, (now - value).total_seconds() / 86400.0)
 
 
-def compute_trust(metrics: Dict[str, Any]) -> Dict[str, Any]:
+def compute_trust(metrics: dict[str, Any]) -> dict[str, Any]:
     """Compute a trust score (0-100) and factor breakdown.
 
     Supported metric keys: ``open_source``, ``has_license``,
     ``stars``, ``contributors``, ``has_releases``, ``last_activity_days``,
     ``valid_asset_ratio``, ``security_flags``, ``has_readme``.
     """
-    factors: Dict[str, float] = {}
+    factors: dict[str, float] = {}
 
     # License clarity
     factors["license_clarity"] = 1.0 if metrics.get("has_license") else 0.0

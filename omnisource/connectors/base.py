@@ -6,21 +6,19 @@ All source connectors should inherit from this class and implement the required 
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional, TypeVar
-from uuid import UUID
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, Field
 
-from omnisource.core.schemas.repository import RepositorySchema
-from omnisource.core.schemas.release import ReleaseSchema
 from omnisource.core.schemas.asset import AssetSchema
+from omnisource.core.schemas.release import ReleaseSchema
+from omnisource.core.schemas.repository import RepositorySchema
 
 
 class ConnectorError(Exception):
     """Base exception for connector errors."""
 
-    def __init__(self, message: str, error_code: Optional[str] = None, is_retriable: bool = True):
+    def __init__(self, message: str, error_code: str | None = None, is_retriable: bool = True):
         super().__init__(message)
         self.message = message
         self.error_code = error_code
@@ -30,11 +28,11 @@ class ConnectorError(Exception):
 class RateLimitError(ConnectorError):
     """Rate limit exceeded error."""
 
-    def __init__(self, reset_at: Optional[datetime] = None, remaining: int = 0):
+    def __init__(self, reset_at: datetime | None = None, remaining: int = 0):
         super().__init__(
             f"Rate limit exceeded. Remaining: {remaining}",
             error_code="RATE_LIMIT",
-            is_retriable=True
+            is_retriable=True,
         )
         self.reset_at = reset_at
         self.remaining = remaining
@@ -66,11 +64,11 @@ class ConnectorHealth(BaseModel):
 
     source: str = Field(..., description="Source name")
     healthy: bool = Field(..., description="Is the connector healthy")
-    latency_ms: Optional[float] = Field(default=None, description="Average latency in ms")
+    latency_ms: float | None = Field(default=None, description="Average latency in ms")
     error_rate: float = Field(default=0.0, description="Error rate (0-1)")
-    last_check: Optional[datetime] = Field(default=None, description="Last health check timestamp")
-    last_success: Optional[datetime] = Field(default=None, description="Last successful request")
-    last_error: Optional[str] = Field(default=None, description="Last error message")
+    last_check: datetime | None = Field(default=None, description="Last health check timestamp")
+    last_success: datetime | None = Field(default=None, description="Last successful request")
+    last_error: str | None = Field(default=None, description="Last error message")
 
 
 class ConnectorStats(BaseModel):
@@ -86,7 +84,7 @@ class ConnectorStats(BaseModel):
     assets_discovered: int = Field(default=0, description="Assets discovered")
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class PageInfo(BaseModel):
@@ -98,14 +96,14 @@ class PageInfo(BaseModel):
     total_pages: int = Field(default=0, description="Total pages")
     has_next: bool = Field(default=False, description="Has next page")
     has_previous: bool = Field(default=False, description="Has previous page")
-    next_cursor: Optional[str] = Field(default=None, description="Cursor for next page")
-    prev_cursor: Optional[str] = Field(default=None, description="Cursor for previous page")
+    next_cursor: str | None = Field(default=None, description="Cursor for next page")
+    prev_cursor: str | None = Field(default=None, description="Cursor for previous page")
 
 
 class SourceConnector(ABC):
     """
     Abstract base class for source connectors.
-    
+
     All connectors must implement the following methods:
     - discover: Discover repositories
     - get_repository: Get repository details
@@ -138,39 +136,31 @@ class SourceConnector(ABC):
 
     @abstractmethod
     async def discover(
-        self,
-        query: Optional[str] = None,
-        cursor: Optional[str] = None,
-        limit: int = 100,
-        **kwargs: Any
-    ) -> tuple[List[RepositorySchema], PageInfo]:
+        self, query: str | None = None, cursor: str | None = None, limit: int = 100, **kwargs: Any
+    ) -> tuple[list[RepositorySchema], PageInfo]:
         """
         Discover repositories from the source.
-        
+
         Args:
             query: Optional search query
             cursor: Pagination cursor
             limit: Maximum number of repositories to return
             **kwargs: Additional parameters
-            
+
         Returns:
             Tuple of (repositories, page_info)
         """
         pass
 
     @abstractmethod
-    async def get_repository(
-        self,
-        repository_id: str,
-        **kwargs: Any
-    ) -> RepositorySchema:
+    async def get_repository(self, repository_id: str, **kwargs: Any) -> RepositorySchema:
         """
         Get details for a specific repository.
-        
+
         Args:
             repository_id: Repository identifier
             **kwargs: Additional parameters
-            
+
         Returns:
             Repository schema
         """
@@ -178,53 +168,43 @@ class SourceConnector(ABC):
 
     @abstractmethod
     async def get_releases(
-        self,
-        repository: RepositorySchema,
-        **kwargs: Any
-    ) -> List[ReleaseSchema]:
+        self, repository: RepositorySchema, **kwargs: Any
+    ) -> list[ReleaseSchema]:
         """
         Get releases for a repository.
-        
+
         Args:
             repository: Repository schema
             **kwargs: Additional parameters
-            
+
         Returns:
             List of release schemas
         """
         pass
 
     @abstractmethod
-    async def get_assets(
-        self,
-        release: ReleaseSchema,
-        **kwargs: Any
-    ) -> List[AssetSchema]:
+    async def get_assets(self, release: ReleaseSchema, **kwargs: Any) -> list[AssetSchema]:
         """
         Get assets for a release.
-        
+
         Args:
             release: Release schema
             **kwargs: Additional parameters
-            
+
         Returns:
             List of asset schemas
         """
         pass
 
     @abstractmethod
-    async def get_metadata(
-        self,
-        repository: RepositorySchema,
-        **kwargs: Any
-    ) -> Dict[str, Any]:
+    async def get_metadata(self, repository: RepositorySchema, **kwargs: Any) -> dict[str, Any]:
         """
         Get metadata for a repository.
-        
+
         Args:
             repository: Repository schema
             **kwargs: Additional parameters
-            
+
         Returns:
             Metadata dictionary
         """
@@ -234,7 +214,7 @@ class SourceConnector(ABC):
     async def health_check(self) -> ConnectorHealth:
         """
         Check the health of the connector.
-        
+
         Returns:
             Health status
         """

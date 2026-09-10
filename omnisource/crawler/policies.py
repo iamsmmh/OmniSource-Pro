@@ -15,6 +15,8 @@ class ProcessingPolicies:
     max_releases_per_repo: int = 50
     max_assets_per_release: int = 100
     respect_rate_limits: bool = True
+    skip_unchanged: bool = True
+    max_sync_age_hours: int = 168  # force refresh at least weekly
 
     @classmethod
     def from_settings(cls) -> "ProcessingPolicies":
@@ -23,6 +25,8 @@ class ProcessingPolicies:
             batch_size=settings.DISCOVERY_BATCH_SIZE,
             max_repositories=settings.DISCOVERY_MAX_REPOS,
             min_stars=settings.DISCOVERY_MIN_STARS,
+            skip_unchanged=settings.SYNC_SKIP_UNCHANGED,
+            max_sync_age_hours=settings.SYNC_MAX_AGE_HOURS,
         )
 
 

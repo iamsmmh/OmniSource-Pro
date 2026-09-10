@@ -17,12 +17,12 @@ FEED_REGISTRY = {
 }
 
 __all__ = [
+    "FEED_REGISTRY",
+    "AndroidFeed",
+    "IOSFeed",
+    "LinuxFeed",
+    "MacOSFeed",
     "PlatformFeed",
     "UniversalFeed",
-    "IOSFeed",
-    "AndroidFeed",
     "WindowsFeed",
-    "MacOSFeed",
-    "LinuxFeed",
-    "FEED_REGISTRY",
 ]

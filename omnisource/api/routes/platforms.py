@@ -1,12 +1,10 @@
 """Platforms API routes for OmniSource."""
 
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import select
 
-from omnisource.config.logging import get_logger
 from omnisource.api.dependencies import get_db
+from omnisource.config.logging import get_logger
 from omnisource.core.models.platform import Platform
 from omnisource.core.schemas.platform import PlatformSchema
 
@@ -15,7 +13,7 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.get("", response_model=List[PlatformSchema])
+@router.get("", response_model=list[PlatformSchema])
 async def list_platforms(
     active_only: bool = Query(default=True, description="Only active platforms"),
     session=Depends(get_db),
@@ -29,7 +27,7 @@ async def list_platforms(
         return list(result.scalars().all())
     except Exception as e:
         logger.error(f"Failed to list platforms: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/{platform_type}")
@@ -47,4 +45,4 @@ async def get_platform(platform_type: str, session=Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Failed to get platform {platform_type}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

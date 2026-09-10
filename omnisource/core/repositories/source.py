@@ -1,9 +1,6 @@
 """Source repository for OmniSource."""
 
-from typing import List, Optional
-
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from omnisource.core.models.source import Source, SourceHealth, SourceType
 from omnisource.core.repositories.base import BaseRepository
@@ -14,14 +11,12 @@ class SourceRepository(BaseRepository[Source]):
 
     model = Source
 
-    async def get_by_name(self, name: str) -> Optional[Source]:
+    async def get_by_name(self, name: str) -> Source | None:
         """Get a source by name."""
-        result = await self.session.execute(
-            select(Source).where(Source.name == name)
-        )
+        result = await self.session.execute(select(Source).where(Source.name == name))
         return result.scalar_one_or_none()
 
-    async def get_by_type(self, source_type: SourceType | str) -> Optional[Source]:
+    async def get_by_type(self, source_type: SourceType | str) -> Source | None:
         """Get the first active source of a given type."""
         if isinstance(source_type, str):
             source_type = SourceType(source_type)
@@ -32,7 +27,7 @@ class SourceRepository(BaseRepository[Source]):
         )
         return result.scalar_one_or_none()
 
-    async def list_active(self) -> List[Source]:
+    async def list_active(self) -> list[Source]:
         """List all active sources."""
         result = await self.session.execute(
             select(Source).where(Source.is_active.is_(True)).order_by(Source.name)
@@ -52,11 +47,11 @@ class SourceRepository(BaseRepository[Source]):
         self,
         source_id,
         status: str,
-        latency_ms: Optional[float] = None,
+        latency_ms: float | None = None,
         error_rate: float = 0.0,
     ) -> SourceHealth:
         """Record a health check result for a source."""
-        from datetime import datetime, UTC
+        from datetime import UTC, datetime
 
         health = SourceHealth(
             source_id=source_id,

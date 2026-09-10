@@ -2,8 +2,9 @@
 
 import asyncio
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, List
+from typing import Any
 
 from omnisource.config.logging import get_logger
 
@@ -29,7 +30,7 @@ class AsyncScheduler:
     """Runs periodic async tasks in a single event loop."""
 
     def __init__(self):
-        self._tasks: List[ScheduledTask] = []
+        self._tasks: list[ScheduledTask] = []
         self._running = False
 
     def add_task(self, name: str, interval_seconds: float, fn: TaskFn) -> ScheduledTask:
@@ -50,7 +51,7 @@ class AsyncScheduler:
                 task.name,
                 time.monotonic() - start,
             )
-        except Exception as exc:  # noqa: BLE001 - scheduler must not die
+        except Exception as exc:
             task.last_error = str(exc)
             logger.error("task %s failed: %s", task.name, exc)
         finally:

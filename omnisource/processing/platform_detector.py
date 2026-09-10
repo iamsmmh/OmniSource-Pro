@@ -1,7 +1,5 @@
 """Platform detection for software assets."""
 
-from typing import Optional
-
 from omnisource.core.models.release import (
     detect_package_type,
     detect_platform,
@@ -10,8 +8,8 @@ from omnisource.core.models.release import (
 
 def detect_platform_from_asset(
     filename: str,
-    mime_type: Optional[str] = None,
-) -> Optional[str]:
+    mime_type: str | None = None,
+) -> str | None:
     """Detect platform from an asset filename (optionally using MIME type)."""
     platform = detect_platform(filename)
     if platform:
@@ -31,4 +29,4 @@ def detect_platform_from_asset(
     return None
 
 
-__all__ = ["detect_platform", "detect_package_type", "detect_platform_from_asset"]
+__all__ = ["detect_package_type", "detect_platform", "detect_platform_from_asset"]
