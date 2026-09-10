@@ -60,7 +60,7 @@ class ReleaseRepository(BaseRepository[Release]):
         """
         release = await self.get_by_external_id(repository_id, external_id)
         created = release is None
-        if created:
+        if release is None:
             release = Release(
                 application_id=application_id,
                 repository_id=repository_id,
@@ -73,7 +73,6 @@ class ReleaseRepository(BaseRepository[Release]):
                 if hasattr(release, key):
                     setattr(release, key, value)
         await self.session.flush()
-        assert release is not None
         return release, created
 
     async def link_asset(

@@ -223,7 +223,7 @@ class RepositorySyncService:
                             "has_breaking_changes": bool(release_row.has_breaking_changes),
                         },
                     )
-                except Exception as exc:  # noqa: BLE001 - notifications never block sync
+                except Exception as exc:  # never block sync on notification errors
                     logger.warning("Release notification failed: %s", exc)
 
         return {"releases": len(releases), "assets": asset_count}

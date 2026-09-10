@@ -33,7 +33,7 @@ async def run_feed_generation(
             "feed.updated",
             {"platforms": [str(r.get("platform", r)) for r in results]},
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("Feed notification failed: %s", exc)
 
     return results
