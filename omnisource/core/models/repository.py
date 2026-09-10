@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     # Resolved by SQLAlchemy relationship() at runtime; imported for type checkers only.
     from omnisource.core.models.application import Application
     from omnisource.core.models.release import Release
-    from omnisource.core.models.syncstate import SyncState
+    from omnisource.core.models.sync import SyncState
 from omnisource.core.models.source import Source
 
 

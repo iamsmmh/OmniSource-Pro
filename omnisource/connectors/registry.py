@@ -3,10 +3,15 @@
 from omnisource.connectors.base import SourceConnector
 
 # Lazily imported connector class paths keyed by source type.
-# Note: Codeberg and Forgejo expose the Gitea API (future work).
 _CONNECTOR_PATHS: dict[str, str] = {
     "github": "omnisource.connectors.github.connector:GitHubConnector",
     "gitlab": "omnisource.connectors.gitlab.connector:GitLabConnector",
+    "codeberg": "omnisource.connectors.codeberg.connector:CodebergConnector",
+    "forgejo": "omnisource.connectors.forgejo.connector:ForgejoConnector",
+    "fdroid": "omnisource.connectors.fdroid.connector:FDroidConnector",
+    "flathub": "omnisource.connectors.flathub.connector:FlathubConnector",
+    "winget": "omnisource.connectors.winget.connector:WingetConnector",
+    "homebrew": "omnisource.connectors.homebrew.connector:HomebrewConnector",
 }
 
 _connector_cache: dict[str, type[SourceConnector]] = {}

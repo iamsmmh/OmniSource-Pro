@@ -75,6 +75,8 @@ class SourceSettings(BaseSettings):
 
     GITLAB_TOKEN: str | None = Field(default=None)
     CODEBERG_TOKEN: str | None = Field(default=None)
+    FORGEJO_TOKEN: str | None = Field(default=None)
+    HOMEBREW_API_URL: str = Field(default="https://formulae.brew.sh/api")
     FDROID_API_URL: str = Field(default="https://f-droid.org/api/v1")
     FLATHUB_API_URL: str = Field(default="https://flathub.org/api/v1")
 

@@ -14,7 +14,7 @@ from omnisource.core.models.base import Base
 if TYPE_CHECKING:
     # Resolved by SQLAlchemy relationship() at runtime; imported for type checkers only.
     from omnisource.core.models.repository import Repository
-    from omnisource.core.models.syncstate import SyncState
+    from omnisource.core.models.sync import SyncState
 
 
 class SourceType(str, Enum):
