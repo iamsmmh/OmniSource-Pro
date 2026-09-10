@@ -41,7 +41,11 @@ class OmniSourceJSONFormatter(jsonlogger.JsonFormatter):
             if hasattr(record, field):
                 log_record[field] = getattr(record, field)
 
-        # Remove standard LogRecord attributes that are already included
+        # Render any traceback into a string so it survives serialization.
+        rendered_exc = self.formatException(record.exc_info) if record.exc_info else None
+
+        # Remove standard LogRecord attributes that duplicate the message.
+        # The rendered ``message`` field is intentionally kept.
         for attr in [
             "name",
             "msg",
@@ -63,9 +67,11 @@ class OmniSourceJSONFormatter(jsonlogger.JsonFormatter):
             "exc_text",
             "thread",
             "threadName",
-            "message",
         ]:
             log_record.pop(attr, None)
+
+        if rendered_exc is not None:
+            log_record["exc_info"] = rendered_exc
 
 
 def setup_logging(log_level: str = "INFO", json_format: bool = True) -> None:

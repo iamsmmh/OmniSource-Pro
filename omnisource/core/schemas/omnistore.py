@@ -7,7 +7,23 @@ https://github.com/iamsmmh/OmniStore-Pro/src/lib/schemas/omnisource.ts
 
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
+
+
+def _normalize_url(value: object) -> object:
+    """Normalize a URL field for OmniStore.
+
+    Blank values become None; scheme-less values (e.g. "www.example.com")
+    get an https:// prefix so they satisfy the HttpUrl type.
+    """
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return None
+        if not stripped.lower().startswith(("http://", "https://")):
+            return f"https://{stripped}"
+        return stripped
+    return value
 
 
 class OmniStorePlatform(str, Enum):
@@ -106,6 +122,11 @@ class OmniStoreDeveloper(BaseModel):
     name: str = Field(..., description="Developer name")
     url: HttpUrl | None = Field(default=None, description="Developer URL")
 
+    @field_validator("url", mode="before")
+    @classmethod
+    def _normalize_url_field(cls, v: object) -> object:
+        return _normalize_url(v)
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
@@ -180,6 +201,18 @@ class OmniStoreApp(BaseModel):
     created_at: str | None = Field(default=None, description="Creation timestamp (ISO format)")
     open_source: bool = Field(default=True, description="Is open source")
     active_development: bool | None = Field(default=None, description="Actively developed")
+
+    @field_validator("homepage", "repository", "documentation", "icon", mode="before")
+    @classmethod
+    def _normalize_url_fields(cls, v: object) -> object:
+        return _normalize_url(v)
+
+    @field_validator("screenshots", mode="before")
+    @classmethod
+    def _drop_blank_screenshots(cls, v: object) -> object:
+        if isinstance(v, (list, tuple)):
+            return [u for u in v if not (isinstance(u, str) and not u.strip())]
+        return v
 
     model_config = ConfigDict(
         json_schema_extra={

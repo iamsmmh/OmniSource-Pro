@@ -103,6 +103,22 @@ def _norm(score) -> int | None:
         return None
 
 
+def _to_omnistore_platform(value: str | None) -> OmniStorePlatform:
+    """Map an internal platform to the OmniStore enum, with a safe fallback."""
+    try:
+        return OmniStorePlatform(value or "linux")
+    except ValueError:
+        return OmniStorePlatform.LINUX
+
+
+def _to_omnistore_architecture(value: str | None) -> OmniStoreArchitecture:
+    """Map an internal architecture to the OmniStore enum, with a safe fallback."""
+    try:
+        return OmniStoreArchitecture(value or "any")
+    except ValueError:
+        return OmniStoreArchitecture.ANY
+
+
 def _to_omnistore_assets(release) -> list[OmniStoreAsset]:
     assets: list[OmniStoreAsset] = []
     for release_asset in getattr(release, "assets", []) or []:
@@ -112,8 +128,8 @@ def _to_omnistore_assets(release) -> list[OmniStoreAsset]:
         assets.append(
             OmniStoreAsset(
                 id=asset.asset_id,
-                platform=OmniStorePlatform(asset.detected_platform or "linux"),
-                architecture=OmniStoreArchitecture(asset.detected_architecture or "any"),
+                platform=_to_omnistore_platform(asset.detected_platform),
+                architecture=_to_omnistore_architecture(asset.detected_architecture),
                 package_type=asset.package_type or asset.file_type or "binary",
                 version=asset.version or release.version,
                 url=asset.browser_download_url or asset.download_url,

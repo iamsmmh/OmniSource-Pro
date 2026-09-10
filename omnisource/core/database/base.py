@@ -32,6 +32,23 @@ def get_async_engine() -> AsyncEngine:
             )
 
         _engine = create_async_engine(url, **engine_kwargs)
+
+        # SQLite: enable WAL so API readers are not blocked by the
+        # collection worker's long write transactions, and wait (instead of
+        # failing) briefly on lock contention.
+        if url.startswith("sqlite"):
+            from sqlalchemy import event
+
+            @event.listens_for(_engine.sync_engine, "connect")
+            def _set_sqlite_pragmas(dbapi_connection, connection_record):  # pragma: no cover
+                cursor = dbapi_connection.cursor()
+                try:
+                    cursor.execute("PRAGMA journal_mode=WAL")
+                    cursor.execute("PRAGMA busy_timeout=30000")
+                    cursor.execute("PRAGMA foreign_keys=ON")
+                finally:
+                    cursor.close()
+
     return _engine
 
 

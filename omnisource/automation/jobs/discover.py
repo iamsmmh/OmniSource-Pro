@@ -17,6 +17,6 @@ async def run_discovery(
 ) -> dict[str, Any]:
     """Run a discovery pass for a source type."""
     service = DiscoveryService(session)
-    result = await service.discover(source_type=source_type)
+    result = await service.discover(source_type=source_type, **kwargs)
     logger.info("Discovery job completed: %s", result)
     return result

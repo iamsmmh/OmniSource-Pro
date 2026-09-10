@@ -14,6 +14,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy import Enum as SQLEnum
@@ -273,12 +274,15 @@ class ReleaseAsset(Base):
     """Represents an asset (downloadable file) associated with a release."""
 
     __tablename__ = "release_assets"
+    __table_args__ = (
+        # An asset may legitimately appear in several releases (re-published
+        # artifacts), so uniqueness is per (release, asset) pair.
+        UniqueConstraint("release_id", "asset_id", name="uq_release_assets_release_asset"),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     release_id: Mapped[UUID] = mapped_column(ForeignKey("releases.id"), nullable=False, index=True)
-    asset_id: Mapped[UUID] = mapped_column(
-        ForeignKey("assets.id"), nullable=False, unique=True, index=True
-    )
+    asset_id: Mapped[UUID] = mapped_column(ForeignKey("assets.id"), nullable=False, index=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
     # Relationships

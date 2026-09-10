@@ -215,8 +215,9 @@ class GitHubConnector(SourceConnector):
         if not self._client:
             raise ConnectorError("Connector not initialized", is_retriable=False)
 
-        # Parse repository ID
-        owner, repo = self._parse_repository_id(repository.external_id or repository.full_name)
+        # Parse repository ID (full_name "owner/repo" preferred; a numeric
+        # external_id alone cannot address a repository endpoint)
+        owner, repo = self._parse_repository_id(repository.full_name or repository.external_id)
 
         try:
             releases_data = await self._client.get_releases(owner, repo)
@@ -277,7 +278,7 @@ class GitHubConnector(SourceConnector):
         if not self._client:
             raise ConnectorError("Connector not initialized", is_retriable=False)
 
-        owner, repo = self._parse_repository_id(repository.external_id or repository.full_name)
+        owner, repo = self._parse_repository_id(repository.full_name or repository.external_id)
 
         metadata: dict[str, Any] = {}
 
