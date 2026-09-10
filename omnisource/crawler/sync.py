@@ -161,6 +161,7 @@ class RepositorySyncService:
 
         release_repo = ReleaseRepository(self.session)
         asset_count = 0
+        new_releases: list[Release] = []
         previous_version: str | None = None
         for release_schema in releases[: self.policies.max_releases_per_repo]:
             status_value = getattr(release_schema.status, "value", release_schema.status)
@@ -170,7 +171,7 @@ class RepositorySyncService:
                 release_notes=release_schema.body,
             )
             previous_version = release_schema.version
-            release = await release_repo.upsert_release(
+            release, release_created = await release_repo.upsert_release(
                 application_id=app.id,
                 repository_id=repository.id,
                 external_id=release_schema.external_id,
@@ -192,6 +193,8 @@ class RepositorySyncService:
                     "breaking_signals": changelog["signals"],
                 },
             )
+            if release_created:
+                new_releases.append(release)
 
             assets = await connector.get_assets(release_schema)
             for asset_schema in assets[: self.policies.max_assets_per_release]:
@@ -203,6 +206,26 @@ class RepositorySyncService:
         now = datetime.now(UTC)
         repository.synced_at = now
         repository.last_synced_pushed_at = repository.pushed_at or now
+
+        # Push notifications for newly ingested releases (best-effort).
+        if new_releases:
+            from omnisource.automation.notify import dispatch_event
+
+            for release_row in new_releases:
+                try:
+                    await dispatch_event(
+                        self.session,
+                        "release.created",
+                        {
+                            "application_id": str(app.id),
+                            "app_id": app.app_id,
+                            "version": release_row.version,
+                            "has_breaking_changes": bool(release_row.has_breaking_changes),
+                        },
+                    )
+                except Exception as exc:  # noqa: BLE001 - notifications never block sync
+                    logger.warning("Release notification failed: %s", exc)
+
         return {"releases": len(releases), "assets": asset_count}
 
     async def _ensure_application(self, repository: Repository) -> Application:

@@ -23,4 +23,17 @@ async def run_feed_generation(
         results = [await generator.generate(platform)]
 
     logger.info("Feed generation job completed: %d feeds", len(results))
+
+    # Notify subscribers that feeds changed (best-effort, never raises).
+    try:
+        from omnisource.automation.notify import dispatch_event
+
+        await dispatch_event(
+            session,
+            "feed.updated",
+            {"platforms": [str(r.get("platform", r)) for r in results]},
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Feed notification failed: %s", exc)
+
     return results

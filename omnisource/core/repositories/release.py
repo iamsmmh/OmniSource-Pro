@@ -53,10 +53,14 @@ class ReleaseRepository(BaseRepository[Release]):
         repository_id: UUID,
         external_id: str,
         values: dict,
-    ) -> Release:
-        """Create or update a release identified by repository + external id."""
+    ) -> tuple[Release, bool]:
+        """Create or update a release; returns (release, created).
+
+        The ``created`` flag lets callers push notifications for new releases.
+        """
         release = await self.get_by_external_id(repository_id, external_id)
-        if release is None:
+        created = release is None
+        if created:
             release = Release(
                 application_id=application_id,
                 repository_id=repository_id,
@@ -69,7 +73,8 @@ class ReleaseRepository(BaseRepository[Release]):
                 if hasattr(release, key):
                     setattr(release, key, value)
         await self.session.flush()
-        return release
+        assert release is not None
+        return release, created
 
     async def link_asset(
         self, release_id: UUID, asset_id: UUID, sort_order: int = 0
