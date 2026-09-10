@@ -7,10 +7,10 @@ Provides REST API endpoints for OmniStore and other clients.
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from omnisource.config.logging import get_logger, setup_logging
 from omnisource.config.settings import get_settings
@@ -128,6 +128,39 @@ app.include_router(latest_router, prefix="/api/v1/latest", tags=["latest"])
 app.include_router(stats_router, prefix="/api/v1/stats", tags=["stats"])
 app.include_router(health_router, prefix="/health", tags=["health"])
 app.include_router(feeds_router, prefix="/feeds", tags=["feeds"])
+
+# Rate limiting, metrics, and API-key auth (order matters: auth added outermost runs first)
+from omnisource.api.metrics import CONTENT_TYPE_LATEST, MetricsMiddleware, render_metrics
+from omnisource.api.rate_limit import RateLimitMiddleware, build_rate_limiter
+from omnisource.api.routes import admin_router, webhooks_router
+from omnisource.api.routes.admin import admin_dashboard_html
+from omnisource.api.security import (
+    configure_app_auth,
+    require_api_key,
+)
+
+app.add_middleware(MetricsMiddleware)
+app.add_middleware(RateLimitMiddleware, limiter=build_rate_limiter())
+configure_app_auth(app)
+
+
+@app.get("/metrics", include_in_schema=False, tags=["observability"])
+async def prometheus_metrics() -> Response:
+    """Prometheus scrape endpoint."""
+    return Response(content=render_metrics(), media_type=CONTENT_TYPE_LATEST)
+
+
+@app.get("/admin", include_in_schema=False, tags=["admin"])
+async def admin_dashboard() -> HTMLResponse:
+    """Admin dashboard UI (data endpoints under /api/v1/admin require an API key)."""
+    return HTMLResponse(content=admin_dashboard_html())
+
+
+# Admin routes require a valid API key; webhook routes verify their own signatures
+app.include_router(
+    admin_router, prefix="/api/v1/admin", tags=["admin"], dependencies=[Depends(require_api_key)]
+)
+app.include_router(webhooks_router, prefix="/api/v1/webhooks", tags=["webhooks"])
 
 
 # Root endpoint

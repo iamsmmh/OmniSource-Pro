@@ -34,6 +34,8 @@ celery = "^5.3.4"
 redis = "^5.0.1"
 # Retry
 tenacity = "^8.2.3"
+# Metrics
+prometheus-client = "^0.20.0"
 # Validation
 jsonschema = "^4.20.0"
 # Security
@@ -102,7 +104,9 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
     "S101", # asserts are the point of tests
+    "S105", # fake tokens/secrets in tests
     "E402", # settings must be configured before app imports
+    "RUF059", # unpacked dummies are fine
 ]
 "omnisource/**/__init__.py" = ["F403"] # star re-exports in package inits
 "omnisource/api/main.py" = ["E402"] # routers are registered after app creation

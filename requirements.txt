@@ -24,6 +24,9 @@ redis>=5.0.1
 # Retry
 tenacity>=8.2.3
 
+# Metrics
+prometheus-client>=0.20.0
+
 # Validation
 jsonschema>=4.20.0
 

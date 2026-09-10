@@ -79,6 +79,9 @@ class SourceSettings(BaseSettings):
     HOMEBREW_API_URL: str = Field(default="https://formulae.brew.sh/api")
     FDROID_API_URL: str = Field(default="https://f-droid.org/api/v1")
     FLATHUB_API_URL: str = Field(default="https://flathub.org/api/v1")
+    WEBHOOK_SECRET_GITHUB: str | None = Field(default=None)
+    WEBHOOK_SECRET_GITLAB: str | None = Field(default=None)
+    WEBHOOK_SECRET_GITEA: str | None = Field(default=None)
 
 
 class S3Settings(BaseSettings):
@@ -108,6 +111,14 @@ class APISettings(BaseSettings):
     API_DEBUG: bool = Field(default=False)
     API_WORKERS: int = Field(default=4, ge=1, le=100)
     API_RATE_LIMIT: int = Field(default=100, ge=1, description="Requests per minute")
+    API_KEYS: list[str] = Field(
+        default_factory=list,
+        description="Valid API keys; empty list disables API-key auth",
+    )
+    API_AUTH_REQUIRED: bool = Field(
+        default=False,
+        description="Require an API key on public read endpoints as well",
+    )
     API_CORS_ORIGINS: list[str] = Field(
         default=["*"],
         description="CORS allowed origins",

@@ -1,5 +1,6 @@
 """API routes for OmniSource."""
 
+from omnisource.api.routes.admin import router as admin_router
 from omnisource.api.routes.apps import router as apps_router
 from omnisource.api.routes.categories import router as categories_router
 from omnisource.api.routes.developers import router as developers_router
@@ -11,8 +12,10 @@ from omnisource.api.routes.releases import router as releases_router
 from omnisource.api.routes.search import router as search_router
 from omnisource.api.routes.stats import router as stats_router
 from omnisource.api.routes.trending import router as trending_router
+from omnisource.api.routes.webhooks import router as webhooks_router
 
 __all__ = [
+    "admin_router",
     "apps_router",
     "categories_router",
     "developers_router",
@@ -24,4 +27,5 @@ __all__ = [
     "search_router",
     "stats_router",
     "trending_router",
+    "webhooks_router",
 ]
