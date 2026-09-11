@@ -132,6 +132,10 @@ strict = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# Makes the `omnisource` package importable when running `pytest` from the
+# repository root without installing the project (CI installs requirements.txt
+# only, which would otherwise leave `omnisource` off sys.path).
+pythonpath = ["."]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]
