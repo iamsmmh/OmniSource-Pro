@@ -1,0 +1,63 @@
+diff --git a/src/config/site.ts b/src/config/site.ts
+index 500591f..d959896 100644
+--- a/src/config/site.ts
++++ b/src/config/site.ts
+@@ -1,9 +1,46 @@
+ import type { PlatformInfo } from "@/lib/schemas/omnisource";
+ 
+-const rawUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+-
++/**
++ * Normalises an origin: trims whitespace, drops trailing slashes and adds
++ * `https://` to scheme-less platform hosts such as Vercel's `VERCEL_URL`.
++ * An empty value stays empty — that is meaningful for `omnisourceUrl`, where
++ * empty means "use the bundled feed".
++ */
+ function normaliseUrl(value: string) {
+-  return value.replace(/\/+$/, "");
++  const trimmed = value.trim().replace(/\/+$/, "");
++  if (!trimmed) return "";
++  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
++}
++
++/**
++ * Public origin used by canonical URLs, Open Graph tags, sitemap.xml and
++ * robots.txt.
++ *
++ * `NEXT_PUBLIC_SITE_URL` always wins, but when it is unset — the normal case
++ * for a first deploy — the hosting platform's own variable is used, so a fresh
++ * Vercel or Netlify deployment is correct without touching the dashboard:
++ *
++ *   Vercel   VERCEL_URL        `my-app.vercel.app` (scheme-less)
++ *   Netlify  DEPLOY_PRIME_URL  deploy-specific origin; `URL` is production
++ *
++ * Local development falls back to http://localhost:3000.
++ */
++export function resolveSiteUrl(
++  env: Record<string, string | undefined> = process.env,
++): string {
++  const candidates = [
++    env.NEXT_PUBLIC_SITE_URL,
++    env.NEXT_PUBLIC_VERCEL_URL ?? env.VERCEL_URL,
++    env.DEPLOY_PRIME_URL,
++    env.URL,
++  ];
++
++  for (const candidate of candidates) {
++    const resolved = normaliseUrl(candidate ?? "");
++    if (resolved) return resolved;
++  }
++
++  return "http://localhost:3000";
+ }
+ 
+ export const site = {
+@@ -13,7 +50,7 @@ export const site = {
+   title: "OmniStore — Universal open-source app discovery",
+   description:
+     "OmniStore is a universal discovery and distribution interface for open-source applications across iOS, iPadOS, Android, Windows, macOS and Linux, powered by OmniSource.",
+-  url: normaliseUrl(rawUrl),
++  url: resolveSiteUrl(),
+   version: process.env.NEXT_PUBLIC_OMNISTORE_VERSION ?? "1.0.0",
+   /** Base URL of a real OmniSource deployment. Empty = bundled OmniSource feed. */
+   omnisourceUrl: normaliseUrl(process.env.NEXT_PUBLIC_OMNISOURCE_API_URL ?? ""),
