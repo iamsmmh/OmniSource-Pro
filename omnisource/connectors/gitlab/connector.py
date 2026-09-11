@@ -14,6 +14,7 @@ from omnisource.connectors.base import (
     PageInfo,
     SourceConnector,
 )
+from omnisource.connectors.http import get_with_retry
 from omnisource.connectors.rate_limiter import RateLimiter
 from omnisource.core.models.release import detect_architecture, detect_package_type, detect_platform
 from omnisource.core.schemas.asset import AssetSchema, AssetSourceSchema, AssetStatusSchema
@@ -66,8 +67,9 @@ class GitLabConnector(SourceConnector):
     async def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         if not self._client:
             raise ConnectorError("Connector not initialized", is_retriable=False)
-        await self.rate_limiter.wait_for_token()
-        response = await self._client.get(path, params=params)
+        response = await get_with_retry(
+            self._client, path, params=params, limiter=self.rate_limiter
+        )
         if response.status_code == 404:
             raise ConnectorError(f"Not found: {path}", error_code="HTTP_404")
         if response.status_code == 401:

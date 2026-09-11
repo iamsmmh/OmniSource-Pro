@@ -30,6 +30,7 @@ from omnisource.connectors.base import (
     PageInfo,
     SourceConnector,
 )
+from omnisource.connectors.http import get_with_retry
 from omnisource.connectors.rate_limiter import RateLimiter
 from omnisource.core.models.release import detect_architecture, detect_package_type, detect_platform
 from omnisource.core.schemas.asset import AssetSchema, AssetSourceSchema, AssetStatusSchema
@@ -107,13 +108,7 @@ class WingetConnector(SourceConnector):
 
     async def _get_json(self, url: str) -> Any:
         client = self._require_client()
-        await self.rate_limiter.wait_for_token()
-        try:
-            response = await client.get(url)
-        except httpx.TimeoutException as e:
-            raise ConnectorError(f"Timeout requesting {url}") from e
-        except httpx.ConnectError as e:
-            raise ConnectorError(f"Connection error requesting {url}") from e
+        response = await get_with_retry(client, url, limiter=self.rate_limiter)
         if response.status_code == 404:
             raise ConnectorError(f"Not found: {url}", error_code="HTTP_404")
         if response.status_code == 403:
@@ -123,8 +118,7 @@ class WingetConnector(SourceConnector):
 
     async def _get_text(self, url: str) -> str:
         client = self._require_client()
-        await self.rate_limiter.wait_for_token()
-        response = await client.get(url)
+        response = await get_with_retry(client, url, limiter=self.rate_limiter)
         if response.status_code == 404:
             raise ConnectorError(f"Not found: {url}", error_code="HTTP_404")
         response.raise_for_status()
@@ -214,8 +208,11 @@ class WingetConnector(SourceConnector):
     async def _fetch_latest_manifest(self, package_id: str) -> dict[str, Any]:
         """Return {path, yaml} for the latest version manifest of a package."""
         client = self._require_client()
-        await self.rate_limiter.wait_for_token()
-        response = await client.get(f"{_REPO_API}/manifests/{package_id.replace(' ', '_')}")
+        response = await get_with_retry(
+            client,
+            f"{_REPO_API}/manifests/{package_id.replace(' ', '_')}",
+            limiter=self.rate_limiter,
+        )
         if response.status_code == 404:
             raise ConnectorError(f"Winget package not found: {package_id}", error_code="HTTP_404")
         response.raise_for_status()

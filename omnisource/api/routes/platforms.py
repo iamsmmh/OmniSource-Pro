@@ -27,7 +27,7 @@ async def list_platforms(
         return list(result.scalars().all())
     except Exception as e:
         logger.error(f"Failed to list platforms: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Service temporarily unavailable") from e
 
 
 @router.get("/{platform_type}")
@@ -45,4 +45,4 @@ async def get_platform(platform_type: str, session=Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Failed to get platform {platform_type}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Service temporarily unavailable") from e

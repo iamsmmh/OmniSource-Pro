@@ -18,6 +18,7 @@ import httpx
 
 from omnisource.config.logging import get_logger
 from omnisource.connectors.base import ConnectorError
+from omnisource.connectors.http import get_with_retry
 from omnisource.connectors.rate_limiter import RateLimiter
 
 logger = get_logger(__name__)
@@ -60,13 +61,9 @@ class GiteaClient:
     async def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         if self._client is None:
             raise ConnectorError("Gitea client not initialized", is_retriable=False)
-        await self.rate_limiter.wait_for_token()
-        try:
-            response = await self._client.get(path, params=params)
-        except httpx.TimeoutException as e:
-            raise ConnectorError(f"Timeout requesting {path}") from e
-        except httpx.ConnectError as e:
-            raise ConnectorError(f"Connection error requesting {path}") from e
+        response = await get_with_retry(
+            self._client, path, params=params, limiter=self.rate_limiter
+        )
 
         if response.status_code == 404:
             raise ConnectorError(f"Not found: {path}", error_code="HTTP_404")

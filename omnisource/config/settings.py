@@ -4,9 +4,11 @@ Settings configuration for OmniSource.
 Uses Pydantic Settings with environment variable support.
 """
 
+import json
 from functools import lru_cache
+from typing import Any
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -84,6 +86,17 @@ class SourceSettings(BaseSettings):
     WEBHOOK_SECRET_GITHUB: str | None = Field(default=None)
     WEBHOOK_SECRET_GITLAB: str | None = Field(default=None)
     WEBHOOK_SECRET_GITEA: str | None = Field(default=None)
+    SOURCE_HEALTH_CHECK_INTERVAL: int = Field(
+        default=300,
+        ge=60,
+        description="Seconds between persisted external-source health probes",
+    )
+    SOURCE_HEALTH_CHECK_TIMEOUT: float = Field(
+        default=15.0,
+        ge=1.0,
+        le=60.0,
+        description="Per-source health-probe timeout in seconds",
+    )
 
 
 class S3Settings(BaseSettings):
@@ -106,8 +119,21 @@ class AISettings(BaseSettings):
     AI_EMBEDDING_MODEL: str | None = Field(default="text-embedding-3-small")
 
 
+class ObservabilitySettings(BaseSettings):
+    """Optional managed error reporting and distributed tracing configuration."""
+
+    SENTRY_DSN: str | None = Field(default=None)
+    OTEL_EXPORTER_OTLP_ENDPOINT: str | None = Field(default=None)
+    OTEL_SERVICE_NAME: str = Field(default="omnisource")
+
+
 class APISettings(BaseSettings):
     """API server configuration."""
+
+    # pydantic-settings assumes every ``list`` environment value is JSON. The
+    # documented/operator-friendly API_KEYS and API_CORS_ORIGINS values are
+    # comma-separated, so decode them below while still accepting JSON arrays.
+    model_config = SettingsConfigDict(enable_decoding=False)
 
     API_HOST: str = Field(default="0.0.0.0")  # noqa: S104 - server binds all interfaces by design
     API_PORT: int = Field(default=8000, ge=1, le=65535)
@@ -123,13 +149,39 @@ class APISettings(BaseSettings):
         description="Require an API key on public read endpoints as well",
     )
     API_CORS_ORIGINS: list[str] = Field(
-        default=["*"],
-        description="CORS allowed origins",
+        default_factory=list,
+        description="Explicit CORS allowed origins; empty disables browser CORS",
     )
+    API_RESPONSE_CACHE_TTL: int = Field(default=60, ge=0, le=3600)
+    API_SEARCH_CACHE_TTL: int = Field(default=30, ge=0, le=3600)
+
+    @field_validator("API_KEYS", "API_CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_delimited_list(cls, value: Any) -> list[str]:
+        """Accept a JSON array or conventional comma-separated environment value."""
+        if value is None:
+            return []
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return []
+            if stripped.startswith("["):
+                try:
+                    parsed = json.loads(stripped)
+                except json.JSONDecodeError as exc:
+                    raise ValueError("must be a JSON array or comma-separated list") from exc
+                if not isinstance(parsed, list):
+                    raise ValueError("must be a JSON array or comma-separated list")
+                value = parsed
+            else:
+                value = stripped.split(",")
+        if not isinstance(value, (list, tuple, set)):
+            raise ValueError("must be a JSON array or comma-separated list")
+        return [str(item).strip() for item in value if str(item).strip()]
 
 
 class FeedSettings(BaseSettings):
-    """Feed generation configuration."""
+    """Feed generation and Ed25519 signing configuration."""
 
     FEEDS_DIR: str = Field(default="./data/feeds", description="Local feeds directory")
     FEEDS_VERSION: str = Field(default="v1", description="Default feed version")
@@ -138,17 +190,32 @@ class FeedSettings(BaseSettings):
         ge=60,
         description="Feed regeneration interval in seconds",
     )
+    FEED_SIGNING_PRIVATE_KEY: str | None = Field(
+        default=None,
+        description="PEM or base64 raw Ed25519 private key; required in production",
+    )
+    FEED_SIGNING_PUBLIC_KEY: str | None = Field(
+        default=None,
+        description="Optional PEM or base64 raw Ed25519 public key for local verification",
+    )
+    FEED_ALLOW_EPHEMERAL_SIGNING: bool = Field(
+        default=True,
+        description="Development-only ephemeral signing fallback; forbidden in production",
+    )
 
 
 class SecuritySettings(BaseSettings):
-    """Security configuration."""
+    """Security scanning and service-secret configuration."""
 
     SECRET_KEY: str = Field(
         default="change-me-in-production",
-        description="Secret key for JWT and other security purposes",
+        description="Service secret; must be replaced in production",
     )
     ALGORITHM: str = Field(default="HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, ge=1)
+    VIRUSTOTAL_API_KEY: str | None = Field(default=None)
+    VIRUSTOTAL_API_URL: str = Field(default="https://www.virustotal.com/api/v3")
+    YARA_RULES_DIR: str | None = Field(default=None)
 
 
 class Settings(BaseSettings):
@@ -169,6 +236,7 @@ class Settings(BaseSettings):
     sources: SourceSettings = Field(default_factory=SourceSettings)
     s3: S3Settings = Field(default_factory=S3Settings)
     ai: AISettings = Field(default_factory=AISettings)
+    observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     api: APISettings = Field(default_factory=APISettings)
     feeds: FeedSettings = Field(default_factory=FeedSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)
@@ -201,6 +269,24 @@ class Settings(BaseSettings):
         if v.lower() not in valid_envs:
             raise ValueError(f"APP_ENV must be one of {valid_envs}")
         return v.lower()
+
+    @model_validator(mode="after")
+    def validate_production_security(self) -> "Settings":
+        """Fail closed when an unsafe production configuration is supplied."""
+        if self.APP_ENV != "production":
+            return self
+        insecure = {"", "change-me-in-production", "changeme", "secret", "password"}
+        if self.security.SECRET_KEY.strip().lower() in insecure:
+            raise ValueError("SECRET_KEY must be supplied through a production secret store")
+        if not self.feeds.FEED_SIGNING_PRIVATE_KEY or self.feeds.FEED_ALLOW_EPHEMERAL_SIGNING:
+            raise ValueError("an Ed25519 FEED_SIGNING_PRIVATE_KEY is required in production")
+        if not self.api.API_KEYS:
+            raise ValueError("API_KEYS must contain at least one production integration key")
+        if not self.meilisearch.MEILISEARCH_MASTER_KEY:
+            raise ValueError("MEILISEARCH_MASTER_KEY is required in production")
+        if "*" in self.api.API_CORS_ORIGINS:
+            raise ValueError("API_CORS_ORIGINS must not contain '*' in production")
+        return self
 
 
 @lru_cache

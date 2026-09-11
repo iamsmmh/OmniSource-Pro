@@ -69,6 +69,21 @@ class RepositoryMetadataSchema(BaseSchema):
     repository_id: UUID = Field(..., description="Repository identifier")
     readme: str | None = Field(default=None, description="README content")
     readme_html: str | None = Field(default=None, description="Rendered README")
+    changelog: str | None = Field(default=None, description="CHANGELOG content")
+    release_notes: list[dict] = Field(default_factory=list, description="Recent release notes")
+    languages: dict = Field(default_factory=dict, description="Language byte counts")
+    package_ecosystems: list[str] = Field(
+        default_factory=list, description="Detected package ecosystems"
+    )
+    project_tags: list[str] = Field(default_factory=list, description="Enriched project tags")
+    enrichment: dict = Field(
+        default_factory=dict, description="Versioned project/developer profile"
+    )
+    icon_url: str | None = Field(default=None, description="Extracted project icon URL")
+    banner_url: str | None = Field(default=None, description="Extracted project banner URL")
+    screenshot_urls: list[str] = Field(
+        default_factory=list, description="Extracted screenshot URLs"
+    )
     topics: list[str] = Field(default_factory=list, description="Topics")
     license_spdx: str | None = Field(default=None, description="SPDX license identifier")
     has_wiki: bool = Field(default=False, description="Has wiki")

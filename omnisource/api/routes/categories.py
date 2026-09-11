@@ -28,7 +28,7 @@ async def list_categories(
         return list(result.scalars().all())
     except Exception as e:
         logger.error(f"Failed to list categories: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Service temporarily unavailable") from e
 
 
 @router.get("/{slug}")
@@ -53,4 +53,4 @@ async def get_category(slug: str, session=Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Failed to get category {slug}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Service temporarily unavailable") from e

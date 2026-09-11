@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "omnisource.fullname" . }}-worker
+  labels:
+    {{- include "omnisource.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "omnisource.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "omnisource.labels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      serviceAccountName: {{ include "omnisource.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 33
+        runAsGroup: 33
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: worker
+          image: {{ include "omnisource.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["celery", "-A", "omnisource.automation.worker", "worker", "--loglevel", "info"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "omnisource.fullname" . }}
+            - secretRef:
+                name: {{ required "existingSecret is required" .Values.existingSecret }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}

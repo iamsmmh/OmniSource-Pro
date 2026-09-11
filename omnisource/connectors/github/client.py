@@ -5,6 +5,7 @@ Provides async HTTP client with rate limiting, retry, and caching.
 """
 
 import asyncio
+import base64
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -291,7 +292,7 @@ class GitHubClient:
         if self._client is None:  # pragma: no cover - defensive
             raise ConnectorError("HTTP client failed to initialize", is_retriable=False)
 
-        return await self._client.request(
+        response = await self._client.request(
             method,
             url,
             params=params,
@@ -299,6 +300,9 @@ class GitHubClient:
             json=json,
             headers=headers,
         )
+        if response.status_code == 429 or response.status_code >= 500:
+            response.raise_for_status()
+        return response
 
     async def get(
         self,
@@ -537,8 +541,10 @@ class GitHubClient:
     ) -> list[dict[str, Any]]:
         """Get repository contents."""
         api_path = f"/repos/{owner}/{repo}/contents/{path}"
-        params = {"ref": ref}
-        return await self.get_paginated(api_path, params=params)
+        response = await self.get(api_path, params={"ref": ref})
+        response.raise_for_status()
+        data = response.json()
+        return data if isinstance(data, list) else [data]
 
     async def get_readme(self, owner: str, repo: str, ref: str = "main") -> str | None:
         """Get repository README."""
@@ -550,8 +556,35 @@ class GitHubClient:
                 return None
             response.raise_for_status()
             data = response.json()
-            return data.get("content", "")
+            return self._decode_content(data)
         except Exception:
+            return None
+
+    async def get_file_text(
+        self, owner: str, repo: str, path: str, ref: str = "main"
+    ) -> str | None:
+        """Fetch and decode a small UTF-8 repository file from the Contents API."""
+        try:
+            response = await self.get(f"/repos/{owner}/{repo}/contents/{path}", params={"ref": ref})
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return self._decode_content(response.json())
+        except Exception:
+            return None
+
+    @staticmethod
+    def _decode_content(data: Any) -> str | None:
+        content = data.get("content") if isinstance(data, dict) else None
+        if not isinstance(content, str):
+            return None
+        try:
+            if data.get("encoding") == "base64":
+                return base64.b64decode(content.encode("ascii"), validate=False).decode(
+                    "utf-8", "replace"
+                )
+            return content
+        except (UnicodeDecodeError, ValueError):
             return None
 
     async def get_license(self, owner: str, repo: str) -> dict[str, Any] | None:

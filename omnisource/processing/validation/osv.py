@@ -77,9 +77,11 @@ async def query_batch(
             response = await client.post(f"{api_base}/querybatch", json={"queries": queries})
             response.raise_for_status()
             data = response.json()
-    except (httpx.HTTPError, ValueError) as exc:
-        logger.warning("OSV querybatch failed: %s", exc)
-        return {"status": "error", "error": str(exc)}
+    except (httpx.HTTPError, ValueError):
+        logger.warning("OSV querybatch failed", exc_info=True)
+        # This result can become persisted scan evidence, so keep the public
+        # state diagnostic but never retain an upstream response or URL.
+        return {"status": "error", "error": "advisory_service_unavailable"}
 
     results: list[list[dict[str, str]]] = []
     for entry in data.get("results", []):

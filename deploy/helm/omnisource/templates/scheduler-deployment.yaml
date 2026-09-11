@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "omnisource.fullname" . }}-scheduler
+  labels:
+    {{- include "omnisource.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scheduler
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "omnisource.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: scheduler
+  template:
+    metadata:
+      labels:
+        {{- include "omnisource.labels" . | nindent 8 }}
+        app.kubernetes.io/component: scheduler
+    spec:
+      serviceAccountName: {{ include "omnisource.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: scheduler
+          image: {{ include "omnisource.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["python", "main.py", "scheduler"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "omnisource.fullname" . }}
+            - secretRef:
+                name: {{ required "existingSecret is required" .Values.existingSecret }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: runtime-data
+              mountPath: /app/data
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.scheduler.resources | nindent 12 }}
+      volumes:
+        - name: runtime-data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "omnisource.dataClaim" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: tmp
+          emptyDir: {}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}

@@ -10,6 +10,18 @@ from omnisource.core.schemas.asset import AssetSchema, AssetSourceSchema, AssetS
 from omnisource.core.schemas.base import BaseSchema
 from omnisource.core.schemas.category import CategorySchema, CategoryType, TagSchema
 from omnisource.core.schemas.developer import DeveloperSchema, OrganizationSchema
+from omnisource.core.schemas.experience import (
+    AnalyticsEventRequest,
+    AnalyticsSummary,
+    CollectionCreate,
+    CollectionItemRequest,
+    CollectionResponse,
+    FavoriteRequest,
+    FavoriteResponse,
+    InteractionTypeSchema,
+    PaginatedCollections,
+    PaginatedFavorites,
+)
 from omnisource.core.schemas.icon import IconSchema
 from omnisource.core.schemas.license import LicenseSchema
 
@@ -32,6 +44,14 @@ from omnisource.core.schemas.quarantine import (
     QuarantineReasonSchema,
     QuarantineSchema,
     QuarantineStatusSchema,
+)
+from omnisource.core.schemas.recommendations import (
+    RecommendationItem,
+    RecommendationKind,
+    RecommendationResponse,
+    SecurityResponse,
+    TrustBadge,
+    TrustResponse,
 )
 from omnisource.core.schemas.release import (
     PackageTypeSchema,
@@ -61,6 +81,8 @@ from omnisource.core.schemas.validation import (
 )
 
 __all__ = [
+    "AnalyticsEventRequest",
+    "AnalyticsSummary",
     "ApplicationRelationshipSchema",
     # Application
     "ApplicationSchema",
@@ -76,10 +98,16 @@ __all__ = [
     # Category
     "CategorySchema",
     "CategoryType",
+    "CollectionCreate",
+    "CollectionItemRequest",
+    "CollectionResponse",
     # Developer
     "DeveloperSchema",
     # Icon
+    "FavoriteRequest",
+    "FavoriteResponse",
     "IconSchema",
+    "InteractionTypeSchema",
     # License
     "LicenseSchema",
     # OmniStore
@@ -92,6 +120,8 @@ __all__ = [
     "OrganizationSchema",
     "PackageTypeSchema",
     "PaginatedAppsSchema",
+    "PaginatedCollections",
+    "PaginatedFavorites",
     # Platform
     "PlatformSchema",
     "PlatformType",
@@ -101,6 +131,9 @@ __all__ = [
     # Quarantine
     "QuarantineSchema",
     "QuarantineStatusSchema",
+    "RecommendationItem",
+    "RecommendationKind",
+    "RecommendationResponse",
     "ReleaseAssetSchema",
     # Release
     "ReleaseSchema",
@@ -110,6 +143,7 @@ __all__ = [
     "RepositorySchema",
     # Screenshot
     "ScreenshotSchema",
+    "SecurityResponse",
     # Security
     "SecurityScanSchema",
     "SecurityStatusSchema",
@@ -123,6 +157,8 @@ __all__ = [
     "SyncStateSchema",
     "TagSchema",
     # Scores
+    "TrustBadge",
+    "TrustResponse",
     "TrustScoreSchema",
     # Validation
     "ValidationResultSchema",

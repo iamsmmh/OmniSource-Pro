@@ -27,6 +27,7 @@ from omnisource.connectors.base import (
     PageInfo,
     SourceConnector,
 )
+from omnisource.connectors.http import get_with_retry
 from omnisource.connectors.rate_limiter import RateLimiter
 from omnisource.core.schemas.asset import AssetSchema, AssetSourceSchema, AssetStatusSchema
 from omnisource.core.schemas.release import ReleaseSchema, ReleaseStatusSchema
@@ -84,15 +85,9 @@ class FlathubConnector(SourceConnector):
 
     async def _get(self, path: str) -> Any:
         client = self._require_client()
-        await self.rate_limiter.wait_for_token()
         # Paths are relative to the v1 API unless they already carry /api/.
         request_path = path if path.startswith("/api/") else f"{self.api_url}{path}"
-        try:
-            response = await client.get(request_path)
-        except httpx.TimeoutException as e:
-            raise ConnectorError(f"Timeout requesting {path}") from e
-        except httpx.ConnectError as e:
-            raise ConnectorError(f"Connection error requesting {path}") from e
+        response = await get_with_retry(client, request_path, limiter=self.rate_limiter)
         if response.status_code == 404:
             raise ConnectorError(f"Not found: {path}", error_code="HTTP_404")
         if response.status_code >= 500 or response.status_code == 429:

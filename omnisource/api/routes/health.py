@@ -1,72 +1,59 @@
-"""
-Health check API routes for OmniSource.
-"""
+"""Liveness, readiness, dependency, and external-source health endpoints."""
 
+from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from omnisource.api.dependencies import get_db
 from omnisource.config.logging import get_logger
 from omnisource.config.settings import get_settings
 from omnisource.connectors.base import ConnectorHealth
+from omnisource.crawler.source_health import SourceHealthService
 
 logger = get_logger(__name__)
 
 router = APIRouter()
 
 
-@router.get("", response_model=dict[str, Any])
-async def health() -> dict[str, Any]:
-    """
-    Full health check endpoint.
-
-    Returns the health status of all components.
-    """
-    health_status: dict = {
-        "status": "healthy",
-        "timestamp": None,
-        "components": {},
-    }
-
-    # Check database
+async def _database_component() -> tuple[bool, dict[str, str]]:
+    """Check the primary database without exposing driver/provider failures."""
     try:
         from omnisource.core.database.base import get_async_engine
 
         engine = get_async_engine()
-        async with engine.begin() as conn:
-            await conn.execute(text("SELECT 1"))
-        health_status["components"]["database"] = {
-            "status": "healthy",
-            "type": "postgresql",
-        }
-    except Exception as e:
-        health_status["status"] = "degraded"
-        health_status["components"]["database"] = {
-            "status": "unhealthy",
-            "error": str(e),
-        }
+        async with engine.begin() as connection:
+            await connection.execute(text("SELECT 1"))
+        return True, {"status": "healthy", "type": "postgresql"}
+    except Exception:
+        logger.warning("Database health check failed", exc_info=True)
+        return False, {"status": "unhealthy", "error": "database_unavailable"}
 
-    # Check Redis
+
+async def _redis_component() -> tuple[bool, dict[str, str]]:
+    """Check Redis and close its short-lived probe client in every outcome."""
+    client = None
     try:
         import redis.asyncio as redis
 
-        settings = get_settings()
-        r = redis.from_url(settings.redis.REDIS_URL)
-        await r.ping()
-        await r.aclose()
-        health_status["components"]["redis"] = {
-            "status": "healthy",
-            "type": "redis",
-        }
-    except Exception as e:
-        health_status["status"] = "degraded"
-        health_status["components"]["redis"] = {
-            "status": "unhealthy",
-            "error": str(e),
-        }
+        client = redis.from_url(get_settings().redis.REDIS_URL)
+        await client.ping()
+        return True, {"status": "healthy", "type": "redis"}
+    except Exception:
+        logger.warning("Redis health check failed", exc_info=True)
+        return False, {"status": "unhealthy", "error": "redis_unavailable"}
+    finally:
+        if client is not None:
+            try:
+                await client.aclose()
+            except Exception:
+                logger.debug("Redis health probe client close failed", exc_info=True)
 
-    # Check Meilisearch
+
+async def _meilisearch_component() -> tuple[bool, dict[str, str]]:
+    """Check the search service, returning a stable public error code only."""
     try:
         import meilisearch
 
@@ -78,122 +65,66 @@ async def health() -> dict[str, Any]:
         result = client.health()
         if hasattr(result, "__await__"):
             await result
-        health_status["components"]["meilisearch"] = {
-            "status": "healthy",
-            "type": "meilisearch",
-        }
-    except Exception as e:
-        health_status["status"] = "degraded"
-        health_status["components"]["meilisearch"] = {
-            "status": "unhealthy",
-            "error": str(e),
-        }
+        return True, {"status": "healthy", "type": "meilisearch"}
+    except Exception:
+        logger.warning("Meilisearch health check failed", exc_info=True)
+        return False, {"status": "unhealthy", "error": "search_unavailable"}
 
-    # Check GitHub connector
-    try:
-        from omnisource.connectors.github import GitHubConnector
 
-        connector = GitHubConnector()
-        await connector.initialize()
-        health = await connector.health_check()
-        await connector.close()
+@router.get("", response_model=dict[str, Any])
+async def health() -> dict[str, Any]:
+    """Return bounded checks for owned dependencies.
 
-        health_status["components"]["github"] = {
-            "status": "healthy" if health.healthy else "unhealthy",
-            "type": "source",
-            "latency_ms": health.latency_ms,
-            "error_rate": health.error_rate,
-        }
-    except Exception as e:
-        health_status["status"] = "degraded"
-        health_status["components"]["github"] = {
-            "status": "unhealthy",
-            "error": str(e),
-        }
-
-    from datetime import UTC, datetime
-
-    health_status["timestamp"] = datetime.now(UTC).isoformat() + "Z"
-
-    return health_status
+    Source probes intentionally live at ``/health/sources`` and in the
+    scheduled source-health job. Keeping external providers out of the main
+    probe prevents GitHub or another upstream from taking the API deployment
+    itself out of rotation.
+    """
+    database_ok, database = await _database_component()
+    redis_ok, redis = await _redis_component()
+    search_ok, search = await _meilisearch_component()
+    healthy = database_ok and redis_ok and search_ok
+    return {
+        "status": "healthy" if healthy else "degraded",
+        "timestamp": datetime.now(UTC).isoformat(),
+        "components": {
+            "database": database,
+            "redis": redis,
+            "meilisearch": search,
+            "sources": {"status": "checked_separately", "type": "external_sources"},
+        },
+    }
 
 
 @router.get("/live", response_model=dict[str, str])
 async def health_live() -> dict[str, str]:
-    """
-    Liveness probe.
-
-    Simple endpoint to check if the service is running.
-    """
+    """Liveness probe: process is accepting HTTP requests."""
     return {"status": "alive"}
 
 
 @router.get("/ready", response_model=dict[str, Any])
-async def health_ready() -> dict[str, Any]:
-    """
-    Readiness probe.
-
-    Checks if the service is ready to accept requests.
-    """
-    ready_status = {
-        "status": "ready",
-        "database": False,
-        "redis": False,
-    }
-
-    # Check database
-    try:
-        from omnisource.core.database.base import get_async_engine
-
-        engine = get_async_engine()
-        async with engine.begin() as conn:
-            await conn.execute(text("SELECT 1"))
-        ready_status["database"] = True
-    except Exception:
-        ready_status["status"] = "not_ready"
-        ready_status["database"] = False
-
-    # Check Redis
-    try:
-        import redis.asyncio as redis
-
-        settings = get_settings()
-        r = redis.from_url(settings.redis.REDIS_URL)
-        await r.ping()
-        await r.aclose()
-        ready_status["redis"] = True
-    except Exception:
-        ready_status["status"] = "not_ready"
-        ready_status["redis"] = False
-
-    return ready_status
+async def health_ready() -> JSONResponse:
+    """Readiness probe for mandatory database and cache dependencies."""
+    database_ok, _ = await _database_component()
+    redis_ok, _ = await _redis_component()
+    is_ready = database_ok and redis_ok
+    return JSONResponse(
+        status_code=200 if is_ready else 503,
+        content={
+            "status": "ready" if is_ready else "not_ready",
+            "database": database_ok,
+            "redis": redis_ok,
+        },
+    )
 
 
 @router.get("/sources", response_model=list[ConnectorHealth])
-async def health_sources() -> list[ConnectorHealth]:
-    """
-    Get health status of all sources.
-
-    Returns health information for each configured source.
-    """
-    health_list = []
-
-    # Check GitHub
+async def health_sources(session=Depends(get_db)) -> list[ConnectorHealth]:
+    """Concurrently probe every registered connector and persist safe telemetry."""
     try:
-        from omnisource.connectors.github import GitHubConnector
-
-        connector = GitHubConnector()
-        await connector.initialize()
-        health = await connector.health_check()
-        await connector.close()
-        health_list.append(health)
-    except Exception as e:
-        health_list.append(
-            ConnectorHealth(
-                source="github",
-                healthy=False,
-                last_error=str(e),
-            )
-        )
-
-    return health_list
+        return await SourceHealthService(
+            session, timeout_seconds=get_settings().sources.SOURCE_HEALTH_CHECK_TIMEOUT
+        ).check_all()
+    except Exception as exc:
+        logger.error("Source health persistence failed", exc_info=True)
+        raise HTTPException(status_code=503, detail="Source health is unavailable") from exc

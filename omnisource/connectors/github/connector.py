@@ -319,6 +319,25 @@ class GitHubConnector(SourceConnector):
         except Exception as e:
             logger.debug(f"Failed to get contributors for {repository.full_name}: {e}")
 
+        # Extract conventional metadata files without assuming they exist.
+        try:
+            contents = await self._client.get_contents(owner, repo)
+            files = [
+                str(item.get("name"))
+                for item in contents
+                if isinstance(item, dict) and item.get("name")
+            ]
+            metadata["files"] = files
+            lower_files = {filename.lower(): filename for filename in files}
+            for name in ("changelog.md", "changes.md", "history.md"):
+                if path := lower_files.get(name):
+                    changelog = await self._client.get_file_text(owner, repo, path)
+                    if changelog:
+                        metadata["changelog"] = changelog
+                        break
+        except Exception as e:
+            logger.debug(f"Failed to get file inventory for {repository.full_name}: {e}")
+
         return metadata
 
     async def health_check(self) -> ConnectorHealth:
