@@ -1,0 +1,39 @@
+# Keep secrets, VCS metadata and local artefacts out of the image.
+.git
+.github
+.env
+.env.*
+!.env.example
+
+# Local runtime data (database, logs, backups, generated feeds)
+data/
+logs/
+*.log
+*.sqlite
+*.db
+
+# Python build/test caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+dist/
+build/
+
+# Editors and OS noise
+.idea/
+.vscode/
+.DS_Store
+
+# Repo tooling that the image does not need
+docker-compose.yml
+Dockerfile
+.gitignore
+.dockerignore
