@@ -27,6 +27,7 @@ class SyncJobType(str, Enum):
     CLASSIFY_APP = "classify_app"
     DEDUPLICATE = "deduplicate"
     INDEX_SEARCH = "index_search"
+    REFRESH_RECOMMENDATIONS = "refresh_recommendations"
     GENERATE_FEED = "generate_feed"
     HEALTH_CHECK = "health_check"
     CLEANUP = "cleanup"

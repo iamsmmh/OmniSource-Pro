@@ -26,6 +26,7 @@ from omnisource.connectors.base import (
     PageInfo,
     SourceConnector,
 )
+from omnisource.connectors.http import get_with_retry
 from omnisource.connectors.rate_limiter import RateLimiter
 from omnisource.core.models.release import detect_package_type
 from omnisource.core.schemas.asset import AssetSchema, AssetSourceSchema, AssetStatusSchema
@@ -83,13 +84,7 @@ class FDroidConnector(SourceConnector):
 
     async def _get(self, path: str) -> Any:
         client = self._require_client()
-        await self.rate_limiter.wait_for_token()
-        try:
-            response = await client.get(path)
-        except httpx.TimeoutException as e:
-            raise ConnectorError(f"Timeout requesting {path}") from e
-        except httpx.ConnectError as e:
-            raise ConnectorError(f"Connection error requesting {path}") from e
+        response = await get_with_retry(client, path, limiter=self.rate_limiter)
         if response.status_code == 404:
             raise ConnectorError(f"Not found: {path}", error_code="HTTP_404")
         if response.status_code >= 500:

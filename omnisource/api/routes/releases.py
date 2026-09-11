@@ -56,7 +56,7 @@ async def list_releases(
         return {"items": items, "total": total, "page": page}
     except Exception as e:
         logger.error(f"Failed to list releases: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Service temporarily unavailable") from e
 
 
 @router.get("/{release_id}")
@@ -84,4 +84,4 @@ async def get_release(release_id: str, session=Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Failed to get release {release_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Service temporarily unavailable") from e

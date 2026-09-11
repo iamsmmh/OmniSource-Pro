@@ -1,4 +1,4 @@
-"""Background worker for OmniSource automation."""
+"""Background worker and Celery application for OmniSource automation."""
 
 import asyncio
 import os
@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 
 
 class AsyncWorker:
-    """Pulls jobs from a queue and executes the matching handler."""
+    """Pulls jobs from an in-process queue and invokes registered handlers."""
 
     def __init__(
         self,
@@ -28,7 +28,7 @@ class AsyncWorker:
         self._running = False
 
     async def process_job(self, job: dict[str, Any]) -> Any:
-        """Execute a single job and return its result."""
+        """Execute one queued job with transaction and Prometheus accounting."""
         import time
 
         from omnisource.api.metrics import JOBS_RUNNING, record_job
@@ -48,15 +48,15 @@ class AsyncWorker:
                 result = await handler(session, **payload)
             record_job(job_type, "completed", time.perf_counter() - started)
             return result
-        except Exception as exc:
+        except Exception:
             record_job(job_type, "failed", time.perf_counter() - started)
-            logger.exception("Job %s failed: %s", job_type, exc)
+            logger.exception("Job %s failed", job_type)
             raise
         finally:
             JOBS_RUNNING.dec()
 
     async def run(self) -> None:
-        """Run the worker loop until stopped."""
+        """Run the local worker loop until it receives a stop signal."""
         self._running = True
         logger.info("Worker %s started", self.worker_id)
         try:
@@ -64,11 +64,9 @@ class AsyncWorker:
                 job = await self.queue.dequeue()
                 try:
                     await self.process_job(job)
-                except Exception as exc:
-                    logger.error(
-                        "Job %s failed: %s",
-                        job.get("type", job.get("job_type", "unknown")),
-                        exc,
+                except Exception:
+                    logger.exception(
+                        "Job %s failed", job.get("type", job.get("job_type", "unknown"))
                     )
         except asyncio.CancelledError:
             logger.info("Worker %s cancelled", self.worker_id)
@@ -77,40 +75,56 @@ class AsyncWorker:
             self._running = False
 
     def stop(self) -> None:
+        """Signal a local worker to stop after its current job."""
         self._running = False
 
 
-# --- Celery integration (optional) -------------------------------------
+# --- Celery integration ---------------------------------------------------------
+# Keep a module-level Celery object. `celery -A omnisource.automation.worker`
+# imports this name directly; creating a client only inside `enqueue_job` left
+# the production Compose worker without a discoverable application.
+app: Any | None = None
 
 
-def get_celery_app():
-    """Return a Celery app if celery is installed, else None."""
+def get_celery_app() -> Any | None:
+    """Return the singleton Celery app, or ``None`` when Celery is unavailable."""
+    global app
+    if app is not None:
+        return app
     try:
         from celery import Celery
 
         from omnisource.config.settings import get_settings
 
         settings = get_settings()
-        app = Celery(
+        celery_app = Celery(
             "omnisource",
             broker=settings.redis.CELERY_BROKER_URL,
             backend=settings.redis.CELERY_RESULT_BACKEND,
         )
+        celery_app.conf.update(
+            task_serializer="json",
+            result_serializer="json",
+            accept_content=["json"],
+            task_track_started=True,
+            worker_prefetch_multiplier=1,
+            task_acks_late=True,
+        )
 
-        @app.task(name="omnisource.run_job")
-        def run_job(job: dict):  # pragma: no cover - exercised by workers
-            """Execute a dispatched job inside the Celery worker process."""
-            import asyncio
-
+        @celery_app.task(name="omnisource.run_job")
+        def run_job(job: dict[str, Any]) -> Any:  # pragma: no cover - runs in a Celery process
+            """Execute one job in the synchronous Celery task boundary."""
             worker = AsyncWorker(queue=None)
             return asyncio.run(worker.process_job(job))
 
+        app = celery_app
         return app
     except ImportError:
         return None
 
 
-app = None
+# Celery needs this concrete module attribute during worker/beat startup.
+app = get_celery_app()
 
 
 __all__ = ["AsyncWorker", "app", "get_celery_app"]

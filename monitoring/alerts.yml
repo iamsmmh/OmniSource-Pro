@@ -1,0 +1,51 @@
+groups:
+  - name: omnisource-api
+    rules:
+      - alert: OmniSourceApiDown
+        expr: up{job="omnisource-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: omnisource
+        annotations:
+          summary: OmniSource API is not scrapeable
+          description: Prometheus has been unable to scrape the API metrics endpoint for two minutes.
+          runbook_url: https://github.com/iamsmmh/OmniSource-Pro/blob/main/docs/OPERATIONS.md#api-unavailable
+
+      - alert: OmniSourceHighServerErrorRate
+        expr: |
+          sum(rate(omnisource_http_requests_total{status=~"5.."}[5m]))
+          / clamp_min(sum(rate(omnisource_http_requests_total[5m])), 1) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: omnisource
+        annotations:
+          summary: OmniSource is returning elevated 5xx responses
+          description: More than five percent of HTTP requests have returned 5xx for ten minutes.
+          runbook_url: https://github.com/iamsmmh/OmniSource-Pro/blob/main/docs/OPERATIONS.md#elevated-5xx-rate
+
+      - alert: OmniSourceSlowApi
+        expr: |
+          histogram_quantile(0.95, sum by (le) (
+            rate(omnisource_http_request_duration_seconds_bucket[10m])
+          )) > 1
+        for: 10m
+        labels:
+          severity: warning
+          service: omnisource
+        annotations:
+          summary: OmniSource API p95 latency is above one second
+          description: The p95 aggregate API latency has exceeded one second for ten minutes.
+          runbook_url: https://github.com/iamsmmh/OmniSource-Pro/blob/main/docs/OPERATIONS.md#elevated-latency
+
+      - alert: OmniSourceJobFailure
+        expr: increase(omnisource_jobs_total{status=~"failed|retrying"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: omnisource
+        annotations:
+          summary: OmniSource background jobs are failing or retrying
+          description: At least one automated job failed or entered retry in the last fifteen minutes.
+          runbook_url: https://github.com/iamsmmh/OmniSource-Pro/blob/main/docs/OPERATIONS.md#background-job-failures

@@ -1,0 +1,103 @@
+image:
+  repository: ghcr.io/iamsmmh/omnisource-pro
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# Secrets are supplied by an external secret manager or a separately managed
+# Kubernetes Secret. It must contain DATABASE_URL, REDIS_URL,
+# CELERY_BROKER_URL, CELERY_RESULT_BACKEND, MEILISEARCH_MASTER_KEY,
+# SECRET_KEY, API_KEYS, and FEED_SIGNING_PRIVATE_KEY.
+existingSecret: omnisource-secrets
+
+api:
+  replicas: 2
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+worker:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+scheduler:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+config:
+  APP_ENV: production
+  LOG_LEVEL: INFO
+  MEILISEARCH_URL: http://meilisearch:7700
+  API_AUTH_REQUIRED: "false"
+  API_RATE_LIMIT: "100"
+  API_RESPONSE_CACHE_TTL: "60"
+  API_SEARCH_CACHE_TTL: "30"
+  FEEDS_DIR: /app/data/feeds
+  FEEDS_VERSION: v1
+  FEED_GENERATION_INTERVAL: "3600"
+  FEED_ALLOW_EPHEMERAL_SIGNING: "false"
+  SOURCE_HEALTH_CHECK_INTERVAL: "300"
+  SOURCE_HEALTH_CHECK_TIMEOUT: "15"
+
+# Keep this explicit; wildcard origins are rejected by production settings.
+corsOrigins: https://store.example.com
+
+# Feed generation and delivery need a shared ReadWriteMany volume when local
+# feeds are used. For multi-region deployments, configure an object-store feed
+# publisher at the edge instead of relying on this volume.
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  accessModes: [ReadWriteMany]
+  size: 10Gi
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+serviceAccount:
+  create: true
+  name: ""
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: api.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+networkPolicy:
+  enabled: false
+  ingressNamespaceLabels: {}

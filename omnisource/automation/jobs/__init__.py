@@ -6,6 +6,8 @@ from typing import Any
 from omnisource.automation.jobs.discover import run_discovery
 from omnisource.automation.jobs.generate_feeds import run_feed_generation
 from omnisource.automation.jobs.index import run_indexing
+from omnisource.automation.jobs.recommend import run_recommendation_refresh
+from omnisource.automation.jobs.source_health import run_source_health_check
 from omnisource.automation.jobs.sync import run_sync
 from omnisource.automation.jobs.validate import run_validation
 
@@ -20,6 +22,8 @@ JOB_HANDLERS: dict[str, JobHandler] = {
     "full_sync": run_sync,
     "validate_asset": run_validation,
     "index_search": run_indexing,
+    "refresh_recommendations": run_recommendation_refresh,
+    "health_check": run_source_health_check,
     "generate_feed": run_feed_generation,
 }
 
@@ -29,6 +33,8 @@ __all__ = [
     "run_discovery",
     "run_feed_generation",
     "run_indexing",
+    "run_recommendation_refresh",
+    "run_source_health_check",
     "run_sync",
     "run_validation",
 ]

@@ -78,6 +78,16 @@ jobs:
       - name: Pytest with coverage
         run: pytest tests/ -q --cov=omnisource --cov-report=term-missing --cov-report=xml
 
+      - name: Validate Alembic upgrade on a clean database
+        if: matrix.python-version == '3.11'
+        env:
+          DATABASE_URL: "sqlite+aiosqlite:///./alembic-ci.db"
+        run: |
+          rm -f alembic-ci.db
+          alembic upgrade head
+          alembic current
+          rm -f alembic-ci.db
+
       - name: Upload coverage artifact
         if: matrix.python-version == '3.11'
         uses: actions/upload-artifact@v4

@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from omnisource.core.models.application import Application, OpenSourceStatus
 from omnisource.core.models.category import Category
+from omnisource.core.models.developer import Developer
 from omnisource.core.models.license import License
 from omnisource.core.models.platform import Architecture, Platform
 from omnisource.core.models.release import Release, ReleaseAsset
@@ -66,6 +67,7 @@ class ApplicationRepository(BaseRepository[Application]):
         q: str | None = None,
         platform: str | None = None,
         category: str | None = None,
+        developer: str | None = None,
         license: str | None = None,
         architecture: str | None = None,
         open_source: Any | None = None,
@@ -80,6 +82,7 @@ class ApplicationRepository(BaseRepository[Application]):
             q=q,
             platform=platform,
             category=category,
+            developer=developer,
             license=license,
             architecture=architecture,
             open_source=open_source,
@@ -179,6 +182,7 @@ class ApplicationRepository(BaseRepository[Application]):
         q: str | None,
         platform: str | None,
         category: str | None,
+        developer: str | None,
         license: str | None,
         architecture: str | None,
         open_source: Any | None,
@@ -206,6 +210,12 @@ class ApplicationRepository(BaseRepository[Application]):
                 or_(
                     Application.categories.any(Category.slug == category),
                     Application.categories.any(Category.category_type == category),
+                )
+            )
+        if developer:
+            query = query.where(
+                Application.developer.has(
+                    or_(Developer.slug == developer, Developer.developer_id == developer)
                 )
             )
         if license:

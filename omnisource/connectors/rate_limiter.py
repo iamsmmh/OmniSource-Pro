@@ -69,10 +69,10 @@ class RateLimiter:
                 if wait_time > 0:
                     logger.debug(f"Rate limited. Waiting {wait_time:.1f}s for reset")
                     await asyncio.sleep(wait_time)
-                    self.remaining = self.max_requests
-                    self.reset_at = now + self.period
-                    self.remaining -= 1
-                    self._last_request = now
+                    resumed_at = datetime.now(UTC)
+                    self.remaining = self.max_requests - 1
+                    self.reset_at = resumed_at + self.period
+                    self._last_request = resumed_at
 
     def update_remaining(self, remaining: int) -> None:
         """Update remaining requests from API response."""

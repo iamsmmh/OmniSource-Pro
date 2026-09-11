@@ -24,6 +24,7 @@ from omnisource.core.models.platform import Architecture, Platform
 from omnisource.core.models.release import Release, ReleaseStatus
 from omnisource.core.models.repository import Repository
 from omnisource.core.models.scores import PopularityScore, QualityScore, TrustScore
+from omnisource.core.models.screenshot import Icon, Screenshot
 from omnisource.core.models.source import SourceType
 from omnisource.core.repositories.release import ReleaseRepository
 from omnisource.core.repositories.repository import RepositoryRepository
@@ -34,7 +35,9 @@ from omnisource.intelligence.scoring import ScoringEngine
 from omnisource.processing.categorization import categorize
 from omnisource.processing.changelog import analyze_release
 from omnisource.processing.deduplication import slugify
+from omnisource.processing.enrichment import MetadataEnricher
 from omnisource.processing.license_engine import normalize_license
+from omnisource.processing.metadata_extractor import MetadataExtractor
 from omnisource.processing.validation.asset_validator import validate_asset
 
 logger = get_logger(__name__)
@@ -184,7 +187,18 @@ class RepositorySyncService:
             logger.warning("Failed to fetch releases for %s: %s", repository.full_name, exc)
             return {"releases": 0, "assets": 0}
 
+        # Connector-specific metadata is optional, but when available it is
+        # normalized before application creation so classification, license,
+        # profile, icon, and screenshot records have a durable source.
+        metadata_payload: dict[str, Any] = {}
+        try:
+            metadata_payload = await connector.get_metadata(repo_schema)
+        except Exception as exc:
+            logger.warning("Metadata extraction failed for %s: %s", repository.full_name, exc)
+        await self._persist_enrichment(repository, metadata_payload, releases)
+
         app = await self._ensure_application(repository)
+        await self._sync_visual_assets(app, repository)
 
         release_repo = ReleaseRepository(self.session)
         asset_count = 0
@@ -230,6 +244,11 @@ class RepositorySyncService:
                 asset_count += 1
 
         await self._compute_scores(app, repository)
+        # Build only indexed shared-feature candidates; this keeps graph refresh
+        # bounded and avoids an O(n²) catalogue comparison.
+        from omnisource.intelligence.recommendations import RecommendationService
+
+        await RecommendationService(self.session).rebuild_for_app(app.app_id)
         now = datetime.now(UTC)
         repository.synced_at = now
         repository.last_synced_pushed_at = repository.pushed_at or now
@@ -254,6 +273,76 @@ class RepositorySyncService:
                     logger.warning("Release notification failed: %s", exc)
 
         return {"releases": len(releases), "assets": asset_count}
+
+    async def _persist_enrichment(
+        self,
+        repository: Repository,
+        metadata_payload: dict[str, Any],
+        releases: list,
+    ) -> None:
+        """Normalize connector metadata into the durable repository profile."""
+        extracted = MetadataExtractor().extract(metadata_payload)
+        release_notes = [
+            {"version": release.version, "notes": release.body or ""} for release in releases[:20]
+        ]
+        enriched = MetadataEnricher().enrich(repository, metadata_payload, release_notes)
+        # Connector payloads vary: accept explicit SPDX while retaining the
+        # standard nested license extraction for GitHub/GitLab responses.
+        license_spdx = metadata_payload.get("license_spdx") or extracted.get("license_spdx")
+        topics = enriched["topics"] or extracted.get("topics", [])
+        values = {
+            **enriched,
+            "topics": topics,
+            "license_spdx": normalize_license(license_spdx),
+        }
+        for key in ("has_wiki", "has_issues", "has_discussions", "has_projects", "has_downloads"):
+            if key in metadata_payload:
+                values[key] = bool(extracted.get(key))
+        if "contributors" in metadata_payload or "contributors_count" in metadata_payload:
+            values["contributors_count"] = int(
+                enriched.get("contributors_count") or extracted.get("contributors_count") or 0
+            )
+
+        # A partial source response must not erase richer fields collected by
+        # a previous run from the same repository.
+        existing = await repository.awaitable_attrs.metadata_obj
+        if existing is not None:
+            values = {
+                key: value
+                for key, value in values.items()
+                if value not in (None, [], {}) or key in {"release_notes", "enrichment"}
+            }
+        await RepositoryRepository(self.session).upsert_metadata(repository.id, values)
+
+    async def _sync_visual_assets(self, app: Application, repository: Repository) -> None:
+        """Promote approved icon/screenshot URLs from repository metadata to app media."""
+        metadata = await repository.awaitable_attrs.metadata_obj
+        if metadata is None:
+            return
+        if metadata.icon_url:
+            existing_icon = await self.session.scalar(
+                select(Icon).where(Icon.application_id == app.id, Icon.url == metadata.icon_url)
+            )
+            if existing_icon is None:
+                self.session.add(
+                    Icon(application_id=app.id, url=metadata.icon_url, is_primary=True)
+                )
+        for sort_order, url in enumerate(metadata.screenshot_urls or []):
+            exists = await self.session.scalar(
+                select(Screenshot.id).where(
+                    Screenshot.application_id == app.id, Screenshot.url == url
+                )
+            )
+            if exists is None:
+                self.session.add(
+                    Screenshot(
+                        application_id=app.id,
+                        url=url,
+                        sort_order=sort_order,
+                        is_primary=sort_order == 0,
+                    )
+                )
+        await self.session.flush()
 
     async def _ensure_application(self, repository: Repository) -> Application:
         """Get or create the application for a repository."""

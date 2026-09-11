@@ -27,7 +27,7 @@ else:
     config.set_main_option("sqlalchemy.url", default_url)
 
 # Add your model's MetaData object here for 'autogenerate' support
-from omnisource.core.database.base import get_sync_engine
+from omnisource.core.database.base import get_async_engine
 from omnisource.core.models import Base
 
 target_metadata = Base.metadata
@@ -55,16 +55,13 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode.
 
-    ``get_sync_engine`` returns the shared async engine, so migrations are
-    executed through ``run_sync`` on an async connection.
+    ``get_async_engine`` creates the shared engine when Alembic is invoked
+    directly, so ``alembic upgrade head`` works before the API has started.
+    Migrations are executed through ``run_sync`` on its async connection.
     """
     import asyncio
 
-    from sqlalchemy.ext.asyncio import AsyncEngine
-
-    connectable = get_sync_engine()
-    if connectable is None or not isinstance(connectable, AsyncEngine):
-        raise RuntimeError("Database engine is not configured; call init_db() first")
+    connectable = get_async_engine()
 
     def do_run_migrations(connection: Any) -> None:
         context.configure(

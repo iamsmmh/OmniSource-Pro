@@ -36,8 +36,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Initialize database
         await init_db()
         logger.info("Database initialized")
-    except Exception as e:
-        logger.error(f"Failed to initialize database: {e}")
+    except Exception:
+        logger.error("Database initialization failed", exc_info=True)
         raise
 
     yield
@@ -47,8 +47,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         await close_db()
         logger.info("Database closed")
-    except Exception as e:
-        logger.error(f"Failed to close database: {e}")
+    except Exception:
+        logger.error("Database shutdown failed", exc_info=True)
+    finally:
+        from omnisource.observability import shutdown_observability
+
+        shutdown_observability(app)
 
 
 # Create FastAPI app
@@ -62,15 +66,26 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Add CORS middleware
+# CORS is opt-in. Credentials are never used with a wildcard origin.
 settings = get_settings()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.api.API_CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+from omnisource.observability import configure_observability
+
+configure_observability(app, settings)
+if settings.api.API_CORS_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.api.API_CORS_ORIGINS,
+        allow_credentials="*" not in settings.api.API_CORS_ORIGINS,
+        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_headers=[
+            "Accept",
+            "Content-Type",
+            "If-None-Match",
+            "X-API-Key",
+            "X-OmniStore-Subject",
+        ],
+        expose_headers=["ETag", "Cache-Control", "X-RateLimit-Limit", "X-RateLimit-Remaining"],
+    )
 
 
 # Global exception handlers
@@ -79,12 +94,15 @@ async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     """Handle validation errors."""
-    logger.warning(f"Validation error: {exc}")
+    logger.warning("Request validation failed", extra={"operation": "request_validation"})
     return JSONResponse(
         status_code=422,
         content={
             "error": "Validation Error",
-            "detail": exc.errors(),
+            "detail": [
+                {key: value for key, value in error.items() if key != "input"}
+                for error in exc.errors()
+            ],
         },
     )
 
@@ -92,29 +110,36 @@ async def validation_exception_handler(
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected errors."""
-    logger.error(f"Unexpected error: {exc}", exc_info=True)
+    logger.error("Unhandled API exception", exc_info=True)
     return JSONResponse(
         status_code=500,
         content={
             "error": "Internal Server Error",
-            "detail": str(exc),
+            "detail": "An unexpected error occurred",
         },
     )
 
 
 # Include API routes
 from omnisource.api.routes import (
+    analytics_router,
     apps_router,
     categories_router,
+    collections_router,
     developers_router,
+    favorites_router,
     feeds_router,
     health_router,
+    integration_router,
     latest_router,
     platforms_router,
+    recommendations_router,
     releases_router,
     search_router,
+    security_router,
     stats_router,
     trending_router,
+    trust_router,
 )
 
 app.include_router(apps_router, prefix="/api/v1/apps", tags=["apps"])
@@ -126,10 +151,20 @@ app.include_router(developers_router, prefix="/api/v1/developers", tags=["develo
 app.include_router(trending_router, prefix="/api/v1/trending", tags=["trending"])
 app.include_router(latest_router, prefix="/api/v1/latest", tags=["latest"])
 app.include_router(stats_router, prefix="/api/v1/stats", tags=["stats"])
+app.include_router(
+    recommendations_router, prefix="/api/v1/recommendations", tags=["recommendations"]
+)
+app.include_router(collections_router, prefix="/api/v1/collections", tags=["collections"])
+app.include_router(favorites_router, prefix="/api/v1/favorites", tags=["favorites"])
+app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["analytics"])
+app.include_router(trust_router, prefix="/api/v1/trust", tags=["trust"])
+app.include_router(security_router, prefix="/api/v1/security", tags=["security"])
+app.include_router(integration_router, prefix="/api/v1", tags=["omnistore-integration"])
 app.include_router(health_router, prefix="/health", tags=["health"])
 app.include_router(feeds_router, prefix="/feeds", tags=["feeds"])
 
 # Rate limiting, metrics, and API-key auth (order matters: auth added outermost runs first)
+from omnisource.api.cache import ResponseCacheMiddleware
 from omnisource.api.metrics import CONTENT_TYPE_LATEST, MetricsMiddleware, render_metrics
 from omnisource.api.rate_limit import RateLimitMiddleware, build_rate_limiter
 from omnisource.api.routes import admin_router, webhooks_router
@@ -139,6 +174,9 @@ from omnisource.api.security import (
     require_api_key,
 )
 
+# Last-added middleware runs outermost in Starlette; keep rate limiting ahead
+# of the response cache so cached hits still count against client quotas.
+app.add_middleware(ResponseCacheMiddleware)
 app.add_middleware(MetricsMiddleware)
 app.add_middleware(RateLimitMiddleware, limiter=build_rate_limiter())
 configure_app_auth(app)

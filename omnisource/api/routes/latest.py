@@ -23,4 +23,4 @@ async def latest_apps(
         return await repo.get_latest(limit=limit)
     except Exception as e:
         logger.error(f"Failed to get latest apps: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Service temporarily unavailable") from e

@@ -43,4 +43,4 @@ async def stats(session=Depends(get_db)):
         }
     except Exception as e:
         logger.error(f"Failed to get stats: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Service temporarily unavailable") from e

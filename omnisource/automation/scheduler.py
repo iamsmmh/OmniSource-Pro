@@ -6,6 +6,8 @@ from omnisource.automation.jobs import (
     run_discovery,
     run_feed_generation,
     run_indexing,
+    run_recommendation_refresh,
+    run_source_health_check,
     run_sync,
     run_validation,
 )
@@ -47,6 +49,16 @@ def build_default_scheduler() -> AsyncScheduler:
         "index",
         sync_interval,
         lambda: _run_with_session(run_indexing),
+    )
+    scheduler.add_task(
+        "recommendations",
+        sync_interval,
+        lambda: _run_with_session(run_recommendation_refresh),
+    )
+    scheduler.add_task(
+        "source_health",
+        settings.sources.SOURCE_HEALTH_CHECK_INTERVAL,
+        lambda: _run_with_session(run_source_health_check),
     )
     scheduler.add_task(
         "generate_feeds",

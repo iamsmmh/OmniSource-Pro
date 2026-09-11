@@ -21,6 +21,7 @@ async def list_apps(
     q: str | None = Query(default=None, description="Search query"),
     platform: str | None = Query(default=None, description="Filter by platform"),
     category: str | None = Query(default=None, description="Filter by category"),
+    developer: str | None = Query(default=None, description="Filter by developer id or slug"),
     license: str | None = Query(default=None, description="Filter by license"),
     architecture: str | None = Query(default=None, description="Filter by architecture"),
     open_source: bool | None = Query(default=None, description="Filter by open source status"),
@@ -51,11 +52,12 @@ async def list_apps(
             "q": q,
             "platform": platform,
             "category": category,
+            "developer": developer,
             "license": license,
             "architecture": architecture,
-            "open_source": "true" if open_source else None,
-            "min_trust": str(min_trust) if min_trust else None,
-            "min_quality": str(min_quality) if min_quality else None,
+            "open_source": str(open_source).lower() if open_source is not None else None,
+            "min_trust": str(min_trust) if min_trust is not None else None,
+            "min_quality": str(min_quality) if min_quality is not None else None,
             "updated_since": updated_since,
             "sort": sort,
         }
@@ -67,7 +69,7 @@ async def list_apps(
 
     except Exception as e:
         logger.error(f"Failed to list apps: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Service temporarily unavailable") from e
 
 
 @router.get("/{app_id}", response_model=OmniStoreApp)
@@ -93,4 +95,4 @@ async def get_app(
         raise
     except Exception as e:
         logger.error(f"Failed to get app {app_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Service temporarily unavailable") from e

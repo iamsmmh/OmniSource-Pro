@@ -12,10 +12,12 @@ Usage in a route::
     async def create_something(...): ...
 """
 
+import hashlib
+import hmac
 import secrets
 from typing import Any
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import APIKeyHeader
 
 from omnisource.config.logging import get_logger
@@ -62,6 +64,25 @@ async def require_api_key(request: Request, api_key: str | None = Depends(_api_k
     return api_key or ""
 
 
+async def require_omnistore_subject(
+    subject: str | None = Header(default=None, alias="X-OmniStore-Subject"),
+    _api_key: str = Depends(require_api_key),
+) -> str:
+    """Return a non-reversible subject key for authenticated personal data APIs.
+
+    Favorites, private collections, and personalized analytics are service-to-
+    service integration endpoints.  OmniStore must authenticate with an API
+    key and pass the stable upstream account subject in this header.  The raw
+    value is deliberately neither persisted nor returned by OmniSource.
+    """
+    if not subject or not subject.strip() or len(subject) > 256:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid subject"
+        )
+    secret = get_settings().security.SECRET_KEY.encode("utf-8")
+    return hmac.new(secret, subject.strip().encode("utf-8"), hashlib.sha256).hexdigest()
+
+
 def _auth_for_request(request: Request) -> APIKeyAuth:
     """Reuse the per-app auth instance created at startup when available."""
     auth: Any | None = getattr(request.app.state, "api_key_auth", None)
@@ -75,4 +96,9 @@ def configure_app_auth(app: Any) -> APIKeyAuth:
     return auth
 
 
-__all__ = ["APIKeyAuth", "configure_app_auth", "require_api_key"]
+__all__ = [
+    "APIKeyAuth",
+    "configure_app_auth",
+    "require_api_key",
+    "require_omnistore_subject",
+]

@@ -6,6 +6,13 @@ from omnisource.core.models.base import Base
 from omnisource.core.models.category import Category, Tag
 from omnisource.core.models.developer import Developer, Organization
 from omnisource.core.models.embedding import AppEmbedding
+from omnisource.core.models.experience import (
+    AnalyticsEvent,
+    Collection,
+    CollectionItem,
+    InteractionType,
+    UserFavorite,
+)
 from omnisource.core.models.license import License
 from omnisource.core.models.notification import NotificationEvent, WebhookSubscription
 from omnisource.core.models.platform import Architecture, Platform
@@ -19,6 +26,7 @@ from omnisource.core.models.sync import SyncJob, SyncState
 from omnisource.core.models.validation import ValidationResult
 
 __all__ = [
+    "AnalyticsEvent",
     "AppEmbedding",
     "Application",
     "ApplicationRelationship",
@@ -27,8 +35,11 @@ __all__ = [
     "AssetValidation",
     "Base",
     "Category",
+    "Collection",
+    "CollectionItem",
     "Developer",
     "Icon",
+    "InteractionType",
     "License",
     "NotificationEvent",
     "Organization",
@@ -50,6 +61,7 @@ __all__ = [
     "SyncState",
     "Tag",
     "TrustScore",
+    "UserFavorite",
     "ValidationResult",
     "WebhookSubscription",
 ]
