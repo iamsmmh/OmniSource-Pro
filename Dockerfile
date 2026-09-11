@@ -29,8 +29,10 @@ WORKDIR /app
 # ============================================
 FROM base as builder
 
-# Install build dependencies
-RUN apt-get install -y --no-install-recommends \
+# Install build dependencies.
+# The base stage removes /var/lib/apt/lists, so the package index must be
+# refreshed here before installing anything (otherwise apt exits with code 100).
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -38,20 +40,18 @@ RUN apt-get install -y --no-install-recommends \
 # Copy requirements
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --user -r requirements.txt
+# Install Python dependencies system-wide so the runtime image can use them as
+# a non-root user (packages under /root are not readable by www-data).
+RUN pip install --no-cache-dir -r requirements.txt
 
 # ============================================
 # Stage 3: Runtime image
 # ============================================
 FROM base as runtime
 
-# Copy Python dependencies from builder
-COPY --from=builder /root/.local /root/.local
+# Copy Python dependencies and entry points from the builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-
-# Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY . .
@@ -87,20 +87,17 @@ CMD ["python", "-m", "uvicorn", "omnisource.api.main:app", "--host", "0.0.0.0", 
 FROM base as development
 
 # Install development dependencies
-RUN apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy all requirements
-COPY requirements.txt .
-COPY pyproject.toml .
+# Copy the project before installing: an editable install of a poetry-core
+# project needs the package sources to build the wheel.
+COPY . .
 
 # Install all dependencies including dev
-RUN pip install --user -e .[dev]
-
-# Copy application code
-COPY . .
+RUN pip install --no-cache-dir -e ".[dev]"
 
 # Set environment variables
 ENV APP_ENV=development \

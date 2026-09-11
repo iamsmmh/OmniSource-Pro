@@ -59,7 +59,10 @@ pytest-mock = "^3.12.0"
 hypothesis = "^6.92.0"
 aiosqlite = "^0.19.0"
 # HTTP testing
-httpx-mock = "^0.0.6"
+# respx is the mock library the test-suite imports (see tests/conftest.py and
+# tests/test_connectors.py). The previous "httpx-mock = ^0.0.6" pin could never
+# resolve: no such version exists on PyPI.
+respx = "^0.20.0"
 
 [tool.poetry.group.dev.dependencies]
 # Development tools
@@ -132,6 +135,10 @@ strict = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# Makes the `omnisource` package importable when running `pytest` from the
+# repository root without installing the project (CI installs requirements.txt
+# only, which would otherwise leave `omnisource` off sys.path).
+pythonpath = ["."]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]
