@@ -78,10 +78,18 @@ class ReleaseRepository(BaseRepository[Release]):
     async def link_asset(
         self, release_id: UUID, asset_id: UUID, sort_order: int = 0
     ) -> ReleaseAsset:
-        """Link an asset to a release."""
-        release_asset = ReleaseAsset(
-            release_id=release_id, asset_id=asset_id, sort_order=sort_order
+        """Link an asset to a release (idempotent on re-sync)."""
+        result = await self.session.execute(
+            select(ReleaseAsset).where(
+                ReleaseAsset.release_id == release_id,
+                ReleaseAsset.asset_id == asset_id,
+            )
         )
-        self.session.add(release_asset)
-        await self.session.flush()
+        release_asset = result.scalar_one_or_none()
+        if release_asset is None:
+            release_asset = ReleaseAsset(
+                release_id=release_id, asset_id=asset_id, sort_order=sort_order
+            )
+            self.session.add(release_asset)
+            await self.session.flush()
         return release_asset

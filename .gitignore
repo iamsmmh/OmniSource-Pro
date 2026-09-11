@@ -87,3 +87,6 @@ build/
 
 # Local data
 data/catalog.json
+
+# Local runtime data (DB, logs, backups, feeds)
+data/

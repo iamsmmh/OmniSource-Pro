@@ -83,14 +83,40 @@ class RepositorySyncService:
         total_releases = 0
         total_assets = 0
         skipped = 0
+        failed = 0
+        processed: set = set()
+        remaining = list(repositories)
         try:
-            for repository in repositories:
-                if self.policies.skip_unchanged and await self._can_skip(connector, repository):
-                    skipped += 1
-                    continue
-                result = await self.sync_repository(connector, repository)
-                total_releases += result["releases"]
-                total_assets += result["assets"]
+            while remaining:
+                repository = remaining.pop(0)
+                # Capture identity before the try: a rollback below expires
+                # ORM attributes, so they must not be read inside the handler.
+                name = repository.full_name
+                repo_id = repository.id
+                try:
+                    if self.policies.skip_unchanged and await self._can_skip(connector, repository):
+                        skipped += 1
+                        processed.add(repo_id)
+                        continue
+                    result = await self.sync_repository(connector, repository)
+                    total_releases += result["releases"]
+                    total_assets += result["assets"]
+                    processed.add(repo_id)
+                except Exception:
+                    # One bad repository must not abort the whole pass.
+                    logger.exception("Failed to sync repository %s", name)
+                    await self.session.rollback()
+                    processed.add(repo_id)
+                    failed += 1
+                    # The rollback expires in-memory state, so re-fetch the
+                    # remaining repositories for the next iteration.
+                    remaining = [
+                        r
+                        for r in await repository_repo.list_repositories(
+                            source_id=source.id, limit=limit or 1000
+                        )
+                        if r.id not in processed
+                    ]
             await self.session.commit()
         finally:
             await connector.close()
@@ -101,6 +127,7 @@ class RepositorySyncService:
             "skipped_unchanged": skipped,
             "releases": total_releases,
             "assets": total_assets,
+            "failed": failed,
         }
 
     async def _can_skip(self, connector: SourceConnector, repository: Repository) -> bool:
@@ -113,7 +140,7 @@ class RepositorySyncService:
         stars/description is still refreshed weekly).
         """
         try:
-            fresh = await connector.get_repository(repository.external_id or repository.full_name)
+            fresh = await connector.get_repository(repository.full_name or repository.external_id)
         except Exception as exc:
             logger.warning("Delta check failed for %s: %s", repository.full_name, exc)
             return False
@@ -246,9 +273,11 @@ class RepositorySyncService:
         app = result.scalar_one_or_none()
 
         if app is None:
+            # Slug from the full name (owner/name) so same-named repositories
+            # from different owners do not collide on the unique slug.
             app = Application(
                 app_id=repository.full_name,
-                slug=slugify(repository.name),
+                slug=slugify(repository.full_name or repository.name),
                 name=repository.name,
                 short_description=(repository.description or "")[:500] or None,
                 long_description=repository.description,

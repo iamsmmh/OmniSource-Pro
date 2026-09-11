@@ -69,7 +69,8 @@ def run_api(host: Optional[str], port: Optional[int], reload: bool) -> None:
 
 
 @cli.command(name="worker", help="Run the background worker")
-def run_worker() -> None:
+@click.option("--source", default="github", show_default=True, help="Source type to sync (e.g. github, gitlab, fdroid)")
+def run_worker(source: str) -> None:
     """Run the background job worker."""
     import asyncio
 
@@ -80,7 +81,7 @@ def run_worker() -> None:
         from omnisource.core.database.session import create_session
 
         async with create_session() as session:
-            await run_sync(session, source_type="github")
+            await run_sync(session, source_type=source)
             await run_validation(session)
             await run_indexing(session)
         logger.info("Worker pipeline complete")
@@ -89,6 +90,30 @@ def run_worker() -> None:
         asyncio.run(_run())
     except KeyboardInterrupt:
         logger.info("Worker stopped")
+
+
+@cli.command(name="discover", help="Discover new repositories from a source")
+@click.option("--source", default="github", show_default=True, help="Source type (e.g. github, gitlab, fdroid)")
+@click.option("--query", default=None, help="Search query override for the connector")
+@click.option("--limit", type=int, default=None, help="Max repositories to discover this pass")
+def run_discover(source: str, query: str | None, limit: int | None) -> None:
+    """Run a discovery pass for the given source."""
+    import asyncio
+
+    from omnisource.automation.jobs import run_discovery
+    from omnisource.core.database.session import create_session
+
+    logger.info("Starting OmniSource discovery")
+
+    async def _run() -> None:
+        async with create_session() as session:
+            result = await run_discovery(session, source_type=source, query=query, limit=limit)
+            logger.info("Discovery result: %s", result)
+
+    try:
+        asyncio.run(_run())
+    except KeyboardInterrupt:
+        logger.info("Discovery stopped")
 
 
 @cli.command(name="scheduler", help="Run the periodic scheduler")
@@ -111,20 +136,24 @@ def run_scheduler() -> None:
 
 
 @cli.command(name="bootstrap", help="Initialize the database")
-async def bootstrap() -> None:
+def bootstrap() -> None:
     """Initialize the database."""
+    import asyncio
+
     from omnisource.core.database.base import init_db
     from omnisource.cli.main import _create_default_data
-    
+
     logger.info("Initializing database...")
-    
-    try:
+
+    async def _run() -> None:
         await init_db()
         logger.info("Database initialized")
-        
+
         await _create_default_data()
         logger.info("Default data created")
-        
+
+    try:
+        asyncio.run(_run())
     except Exception as e:
         logger.error(f"Bootstrap failed: {e}")
         sys.exit(1)
