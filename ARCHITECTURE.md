@@ -68,7 +68,7 @@ Plugin-style architecture for different software sources.
 - `flathub/` - Flathub connector
 - `winget/` - Winget connector (winget-pkgs manifests)
 - `homebrew/` - Homebrew connector (formulae + casks)
-- `fmhy/` - FMHY connector (iOS iPAs listing from fmhy.net/mobile)
+- `fmhy/` - FMHY connector (Android / iOS mobile listing from fmhy.net/mobile)
 - `registry.py` - Source-type → connector registry
 
 ### 2. Crawler (`omnisource/crawler/`)

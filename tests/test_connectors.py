@@ -389,181 +389,235 @@ class TestHomebrew:
 
 # --- FMHY (freemediaheckyeah) ---------------------------------------------------
 #
-# VitePress-rendered slice of https://fmhy.net/mobile around the "iOS iPAs"
-# section. Markup mirrors the live site: perma-link anchors inside headings,
-# emoji bullets, ``<strong>``-emphasized primary links, and a zero-width word
-# joiner (U+2060) in one label.
+# VitePress-rendered slice of https://fmhy.net/mobile covering both platform
+# parts. Markup mirrors the live site build: a plain-HTML document-title
+# <h1> ("Android / iOS"), platform sections rendered as <h2> (the wiki's h1
+# sections are shifted one level down by VitePress), subsections as <h3>,
+# icon-only reference anchors (Telegram/Discord links render without text),
+# a page-outline aside with fragment links, header nav, emoji bullets, and a
+# zero-width word joiner (U+2060) in one label.
 
-FMHY_MOBILE_HTML = """
+FMHY_PAGE_HTML = """
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Android / iOS</title></head>
+<head><meta charset="utf-8"><title>Android / iOS • freemediaheckyeah</title></head>
 <body>
+<header><nav><ul>
+  <li><a href="https://fmhy.net/streaming">Streaming</a></li>
+  <li><a href="https://fmhy.net/music">Music</a></li>
+</ul></nav></header>
 <main class="main">
 <div class="vp-doc _mobile">
-<h1 id="ios-privacy" tabindex="-1">
-  <a class="header-anchor" href="#ios-privacy" aria-label="Permalink to &quot;iOS Privacy&quot;">#</a>
-  &#9658; iOS Privacy
-</h1>
-<ul>
-  <li><a href="https://onionbrowser.com/">Onion Browser</a> - Tor-Based Browser</li>
-</ul>
+<div class="space-y-2 not-prose">
+  <h1 class="text-4xl font-extrabold tracking-tight text-primary">Android / iOS</h1>
+  <p class="text-black dark:text-text-2">Apps, Jailbreaking, Android Emulators</p>
+</div>
 <hr />
-<h1 id="ios-ipas" tabindex="-1">
-  <a class="header-anchor" href="#ios-ipas" aria-label="Permalink to &quot;iOS iPAs&quot;">#</a>
-  &#9658; iOS iPAs
-</h1>
+<h2 id="android-apks" tabindex="-1">
+  <a class="header-anchor" href="#android-apks" aria-label="Permalink to &quot;Android APKs&quot;">#</a>
+  &#9658; Android APKs
+</h2>
+<h3 id="modded-apks" tabindex="-1">
+  <a class="header-anchor" href="#modded-apks">#</a>
+  &#9658; Modded APKs
+</h3>
 <ul>
-  <li>\U0001f310 <strong><a href="https://ipa.cypwn.xyz/">CyPwn</a></strong> - Tweaked App Library / <a href="https://ipa.cypwn.xyz/cypwn.json">AltStore</a> / <a href="https://telegram.me/cypwngroup">Telegram</a> / <a href="https://discord.com/invite/UvHZz3HfN9">Discord</a></li>
-  <li>\U0001f310 <strong><a href="https://github.com/dkhamsing/open-source-ios-apps">Open-Source iOS Apps</a></strong> - Open-Source Apps</li>
-  <li>\U0001f310 <strong><a href="https://github.com/pluwen/awesome-testflight-link">Awesome TestFlight</a></strong>, <a href="https://departures.to/">Departures</a> or <a href="https://docs.google.com/spreadsheets/d/1Uej3AQPxRcLRXnmthUXR-7oGkNV_GsMFgCoNnuPtSwI/">TestFlight Spreadsheet</a> - TestFlight App Indexes</li>
-  <li>\U0001f310 <strong><a href="https://appstoretracker.com/">App Store Tracker</a></strong> - App Store Analytics / Tracker </li>
-  <li>\U0001f310 <strong><a href="https://www.reddit.com/r/EmulationOniOS/wiki/emulators">iOS Console Emulators</a></strong> - Gaming Emulator Index</li>
-  <li>\u2b50 <strong>PDALife</strong> - <a href="https://pdalife.com/ios/games">Games</a> / <a href="https://pdalife.com/ios/programmy/">Apps</a> / <a href="https://t.me/pdalife_official">Telegram</a></li>
-  <li><a href="https://ipalibrary.me/">IPALibrary</a> - Tweaked Apps / Use Safari to Translate</li>
-  <li><a href="https://4pda.to/forum/">4PDA</a> - Tweaked Apps / Use Safari to Translate / <a href="https://github.com/fmhy/edit/blob/main/docs/.vitepress/notes/captcha-4pda.md">Captcha Note</a></li>
-  <li><a href="https://appdb.to">AppDB</a> - App Library</li>
-  <li><a href="https://iosvizor.com/">iOSVizor</a> - Tweaked Apps / <a href="https://t.me/iosvizor">Telegram</a></li>
-  <li><a href="https://raw.githubusercontent.com/driftywinds/driftywinds.github.io/master/AltStore/apps.json">DriftyWinds</a> - AltStore App Source</li>
-  <li><a href="https://fastsign.dev/">\u2060Alan's Gigantic Repo</a> - Tweaked App Library / <a href="https://discord.gg/UAYA4ZuKXD">Discord</a></li>
-  <li><a href="https://fnd.io/">fnd</a> - App Store Search</li>
-  <li><a href="https://github.com/Neoncat-OG/TrollStore-IPAs">TrollStore-IPAs</a> - Tweaked Apps</li>
-  <li><a href="https://rentry.co/FMHYB64#moes-app">Moe's App Hub</a> - Tweaked Apps</li>
-  <li><a href="https://platinmods.com/">PlatinMods</a> - Tweaked Apps / Requires Sign-Up</li>
-  <li><a href="https://repository.apptesters.org/">AppTesters</a> - Tweaked Apps / <a href="https://t.me/AppleTesters">Telegram</a></li>
-  <li><a href="https://stuffed18.github.io/ipa-archive-updated">IPA Archive</a> - Search Engine</li>
-  <li><a href="https://archive.org/details/iOSObscura">iOSObscura</a> - Old App Archive / <a href="https://iphoneosobscura.litten.ca/">Search Engine</a></li>
-  <li><a href="https://applecensorship.com/">AppleCensorship</a> - Censored App Store Apps</li>
-  <li><a href="https://github.com/majd/ipatool">IPATool</a> - Search / Download App Packages</li>
-  <li><a href="https://armconverter.com/decryptedappstore">Decrypted App Store</a>, <a href="https://decrypt.34306.lol/">unfaird</a> or <a href="https://anyipa.me/">AnyIPA</a> / <a href="https://t.me/AnyIPAme">Telegram</a> / <a href="https://discord.gg/c233DYUzsw">Discord</a> - Decrypted iOS Apps</li>
+  <li><a href="https://play.google.com/store/apps/details?id=brave">Brave</a> - Adblock Browser / <a target="_blank" href="https://discord.gg/abc"><span class="i-carbon:logo-discord"></span></a></li>
+  <li><strong><a href="https://github.com/mihonapp/mihon">Mihon</a></strong> - Manga Reader</li>
+  <li>Prose tip with no links at all</li>
 </ul>
-<hr />
-<h2 id="telegram-channels-1" tabindex="-1">
-  <a class="header-anchor" href="#telegram-channels-1" aria-label="Permalink to &quot;Telegram Channels&quot;">#</a>
-  &#9658; Telegram Channels
+<h2 id="emulators" tabindex="-1">
+  <a class="header-anchor" href="#emulators">#</a>
+  &#9658; Emulators
 </h2>
 <ul>
-  <li>\u2b50 <strong><a href="https://blatants.fyi/">Blatant's IPA Library</a></strong>, <a href="https://t.me/blatants">2</a> - Tweaked Apps / <a href="https://t.me/blatantbruh">Telegram</a> </li>
+  <li class="starred">\u2b50 <strong><a href="https://termux.dev/">Termux</a></strong> - Terminal Emulator</li>
+</ul>
+<h2 id="ios-tools" tabindex="-1">
+  <a class="header-anchor" href="#ios-tools">#</a>
+  &#9658; iOS Tools
+</h2>
+<ul>
+  <li><a href="https://apps.apple.com/app/id1234">Brave</a> - Adblock Browser</li>
+  <li><a href="https://play.google.com/store/apps/details?id=weird">WeirdOne</a> - Store Link In iOS Zone</li>
+  <li><a href="#ios-ipas">Outline Entry</a> - Page Outline Link</li>
+</ul>
+<h2 id="ios-ipas" tabindex="-1">
+  <a class="header-anchor" href="#ios-ipas">#</a>
+  &#9658; iOS iPAs
+</h2>
+<ul>
+  <li>\U0001f310 <strong><a href="https://ipa.cypwn.xyz/">CyPwn</a></strong> - Tweaked App Library / <a href="https://ipa.cypwn.xyz/cypwn.json">AltStore</a></li>
+  <li>\u2b50 <strong>PDALife</strong> - <a href="https://pdalife.com/ios/games">Games</a> / <a href="https://pdalife.com/ios/programmy/">Apps</a> / <a target="_blank" href="https://t.me/pdalife_official"><span class="i-mdi:telegram"></span></a></li>
+  <li><a href="https://ipalibrary.me/">IPALibrary</a> - Tweaked Apps / Use Safari to Translate</li>
+  <li><a href="https://fastsign.dev/">\u2060Alan's Gigantic Repo</a> - Tweaked App Library / <a target="_blank" href="https://discord.gg/UAYA4ZuKXD"><span class="i-carbon:logo-discord"></span></a></li>
+</ul>
+<h3 id="telegram-channels-1" tabindex="-1">
+  <a class="header-anchor" href="#telegram-channels-1">#</a>
+  &#9658; Telegram Channels
+</h3>
+<ul>
+  <li class="starred">\u2b50 <strong><a href="https://blatants.fyi/">Blatant's IPA Library</a></strong>, <a href="https://t.me/blatants">2</a> - Tweaked Apps / <a target="_blank" href="https://t.me/blatantbruh"><span class="i-mdi:telegram"></span></a></li>
+  <li><a href="https://github.com/Lessica/TrollRecorder">TrollRecorder</a> - Call Recorder / <strong>Check Local Call Recording Laws</strong></li>
 </ul>
 </div>
 </main>
+<aside class="aside"><nav class="table-of-styles"><ul>
+  <li><a href="#android-apks">Android APKs</a></li>
+  <li><a href="#ios-ipas">iOS iPAs</a></li>
+</ul></nav></aside>
 </body>
 </html>
 """
 
-FMHY_SECTION_NAMES = {
-    "CyPwn",
-    "Open-Source iOS Apps",
-    "Awesome TestFlight",
-    "App Store Tracker",
-    "iOS Console Emulators",
-    "PDALife",
-    "IPALibrary",
-    "4PDA",
-    "AppDB",
-    "iOSVizor",
-    "DriftyWinds",
-    "Alan's Gigantic Repo",
-    "fnd",
-    "TrollStore-IPAs",
-    "Moe's App Hub",
-    "PlatinMods",
-    "AppTesters",
-    "IPA Archive",
-    "iOSObscura",
-    "AppleCensorship",
-    "IPATool",
-    "Decrypted App Store",
-}
+# (name, url, platform, description) in document order.
+FMHY_PAGE_EXPECTED = [
+    ("Brave", "https://play.google.com/store/apps/details?id=brave", "android", "Adblock Browser"),
+    ("Mihon", "https://github.com/mihonapp/mihon", "android", "Manga Reader"),
+    ("Termux", "https://termux.dev/", "android", "Terminal Emulator"),
+    ("Brave", "https://apps.apple.com/app/id1234", "ios", "Adblock Browser"),
+    # Play Store link inside the iOS zone: the store URL wins.
+    (
+        "WeirdOne",
+        "https://play.google.com/store/apps/details?id=weird",
+        "android",
+        "Store Link In iOS Zone",
+    ),
+    ("CyPwn", "https://ipa.cypwn.xyz/", "ios", "Tweaked App Library"),
+    ("PDALife", "https://pdalife.com/ios/games", "ios", ""),
+    ("IPALibrary", "https://ipalibrary.me/", "ios", "Tweaked Apps / Use Safari to Translate"),
+    ("Alan's Gigantic Repo", "https://fastsign.dev/", "ios", "Tweaked App Library"),
+    ("Blatant's IPA Library", "https://blatants.fyi/", "ios", "Tweaked Apps"),
+    # A trailing bold note is part of the description, never the label.
+    (
+        "TrollRecorder",
+        "https://github.com/Lessica/TrollRecorder",
+        "ios",
+        "Call Recorder / Check Local Call Recording Laws",
+    ),
+]
 
 
 class TestFMHY:
-    def test_parser_extracts_only_ios_ipas_section(self):
-        entries = parse_fmhy_entries(FMHY_MOBILE_HTML)
-        assert {e["name"] for e in entries} == FMHY_SECTION_NAMES
-        by_name = {e["name"]: e for e in entries}
-        # Emphasized label with primary link + stripped reference links.
-        assert by_name["CyPwn"]["url"] == "https://ipa.cypwn.xyz/"
-        assert by_name["CyPwn"]["description"] == "Tweaked App Library"
-        # Emphasized label without a link falls back to the first link.
-        assert by_name["PDALife"]["url"] == "https://pdalife.com/ios/games"
-        assert by_name["PDALife"]["description"] == ""
+    def test_parser_tracks_platform_zones(self):
+        entries = parse_fmhy_entries(FMHY_PAGE_HTML)
+        actual = [(e["name"], e["url"], e["platform"], e["description"]) for e in entries]
+        assert actual == FMHY_PAGE_EXPECTED
+
+    def test_parser_ignores_chrome_and_unresolvable_entries(self):
+        names = {e["name"] for e in parse_fmhy_entries(FMHY_PAGE_HTML)}
+        # Header nav (before any zone), page outline (fragment links), and
+        # prose lines are not applications.
+        assert "Streaming" not in names
+        assert "Music" not in names
+        assert "Outline Entry" not in names
+        # Emphasized label without a link falls back to the first real link.
+        pdalife = next(e for e in parse_fmhy_entries(FMHY_PAGE_HTML) if e["name"] == "PDALife")
+        assert pdalife["url"] == "https://pdalife.com/ios/games"
         # Zero-width word joiner is stripped from the name.
-        assert by_name["Alan's Gigantic Repo"]["url"] == "https://fastsign.dev/"
-        # Entries outside the section (iOS Privacy, Telegram Channels) are excluded.
-        assert "Onion Browser" not in by_name
-        assert "Blatant's IPA Library" not in by_name
+        assert "Alan's Gigantic Repo" in names
+        # Icon-only reference anchors (Telegram/Discord) never hijack the
+        # primary link or the description.
+        brave = next(e for e in parse_fmhy_entries(FMHY_PAGE_HTML) if e["name"] == "Brave")
+        assert brave["description"] == "Adblock Browser"
+
+    def test_parser_empty_page(self):
+        assert parse_fmhy_entries("") == []
+        assert parse_fmhy_entries("<html><body><p>no sections</p></body></html>") == []
 
     async def test_discover(self, respx_mock):
-        respx_mock.get("https://fmhy.net/mobile").respond(html=FMHY_MOBILE_HTML)
+        respx_mock.get("https://fmhy.net/mobile").respond(html=FMHY_PAGE_HTML)
 
         connector = FMHYConnector()
         await connector.initialize()
         try:
             repos, page_info = await connector.discover(limit=100)
-            assert page_info.total == len(FMHY_SECTION_NAMES)
+            assert page_info.total == len(FMHY_PAGE_EXPECTED)
             assert page_info.has_next is False
             assert page_info.next_cursor is None
-            assert {r.name for r in repos} == FMHY_SECTION_NAMES
 
-            cypwn = next(r for r in repos if r.name == "CyPwn")
-            assert cypwn.external_id == "cypwn"
+            by_id = {r.external_id: r for r in repos}
+            # Same name on both platforms -> platform-suffixed external ids.
+            assert by_id["brave-android"].name == "Brave"
+            assert (
+                by_id["brave-android"].html_url
+                == "https://play.google.com/store/apps/details?id=brave"
+            )
+            assert by_id["brave-android"].topics == ["android"]
+            assert by_id["brave-ios"].html_url == "https://apps.apple.com/app/id1234"
+            assert by_id["brave-ios"].topics == ["ios"]
+            # Store URL in the iOS zone is tagged android.
+            assert by_id["weirdone"].topics == ["android"]
+            # Unique names keep plain slugs.
+            cypwn = by_id["cypwn"]
             assert cypwn.full_name == "fmhy/cypwn"
             assert cypwn.homepage == "https://ipa.cypwn.xyz/"
             assert cypwn.description == "Tweaked App Library"
             assert cypwn.source_type == "fmhy"
-
-            pdalife = next(r for r in repos if r.name == "PDALife")
-            assert pdalife.html_url == "https://pdalife.com/ios/games"
+            pdalife = by_id["pdalife"]
             assert pdalife.description is None
         finally:
             await connector.close()
 
     async def test_discover_pagination(self, respx_mock):
-        respx_mock.get("https://fmhy.net/mobile").respond(html=FMHY_MOBILE_HTML)
+        respx_mock.get("https://fmhy.net/mobile").respond(html=FMHY_PAGE_HTML)
 
         connector = FMHYConnector()
         await connector.initialize()
         try:
-            first, page1 = await connector.discover(limit=5)
-            assert len(first) == 5
+            first, page1 = await connector.discover(limit=4)
+            assert len(first) == 4
             assert page1.has_next is True
-            assert page1.next_cursor == "5"
+            assert page1.next_cursor == "4"
 
-            second, page2 = await connector.discover(limit=5, cursor="5")
-            assert len(second) == 5
-            assert {r.name for r in first} & {r.name for r in second} == set()
-            assert page2.next_cursor == "10"
+            second, page2 = await connector.discover(limit=4, cursor="4")
+            assert len(second) == 4
+            assert page2.next_cursor == "8"
             assert page2.has_previous is True
 
-            last, page_last = await connector.discover(limit=5, cursor=str(20))
-            assert len(last) == 2
+            last, page_last = await connector.discover(limit=4, cursor="8")
+            assert len(last) == 3
             assert page_last.has_next is False
             assert page_last.next_cursor is None
+
+            # No entry appears on two pages.
+            seen = (
+                [r.external_id for r in first]
+                + [r.external_id for r in second]
+                + [r.external_id for r in last]
+            )
+            assert len(seen) == len(set(seen)) == len(FMHY_PAGE_EXPECTED)
         finally:
             await connector.close()
 
     async def test_discover_query_filter(self, respx_mock):
-        respx_mock.get("https://fmhy.net/mobile").respond(html=FMHY_MOBILE_HTML)
+        respx_mock.get("https://fmhy.net/mobile").respond(html=FMHY_PAGE_HTML)
 
         connector = FMHYConnector()
         await connector.initialize()
         try:
-            repos, _ = await connector.discover(limit=100, query="trollstore")
-            assert [r.name for r in repos] == ["TrollStore-IPAs"]
+            repos, _ = await connector.discover(limit=100, query="manga")
+            assert [r.name for r in repos] == ["Mihon"]
+            tweaked, _ = await connector.discover(limit=100, query="tweaked")
+            assert {r.name for r in tweaked} == {
+                "CyPwn",
+                "IPALibrary",
+                "Alan's Gigantic Repo",
+                "Blatant's IPA Library",
+            }
         finally:
             await connector.close()
 
     async def test_get_repository(self, respx_mock):
-        respx_mock.get("https://fmhy.net/mobile").respond(html=FMHY_MOBILE_HTML)
+        respx_mock.get("https://fmhy.net/mobile").respond(html=FMHY_PAGE_HTML)
 
         connector = FMHYConnector()
         await connector.initialize()
         try:
             by_external = await connector.get_repository("cypwn")
             assert by_external.name == "CyPwn"
-            by_full_name = await connector.get_repository("fmhy/cypwn")
-            assert by_full_name.external_id == "cypwn"
+            by_full_name = await connector.get_repository("fmhy/brave-ios")
+            assert by_full_name.external_id == "brave-ios"
             by_name = await connector.get_repository("PDALife")
             assert by_name.html_url == "https://pdalife.com/ios/games"
 
@@ -573,7 +627,7 @@ class TestFMHY:
             await connector.close()
 
     async def test_releases_assets_and_metadata(self, respx_mock):
-        respx_mock.get("https://fmhy.net/mobile").respond(html=FMHY_MOBILE_HTML)
+        respx_mock.get("https://fmhy.net/mobile").respond(html=FMHY_PAGE_HTML)
 
         connector = FMHYConnector()
         await connector.initialize()
@@ -583,12 +637,17 @@ class TestFMHY:
             assert await connector.get_assets(repo) == []
             metadata = await connector.get_metadata(repo)
             assert metadata["source"] == "fmhy"
-            assert "ios-ipas" in metadata["topics"]
+            assert metadata["platforms"] == ["ios"]
+            assert metadata["topics"] == ["ios"]
+
+            android_repo = await connector.get_repository("brave-android")
+            android_meta = await connector.get_metadata(android_repo)
+            assert android_meta["platforms"] == ["android"]
         finally:
             await connector.close()
 
     async def test_health_check(self, respx_mock):
-        respx_mock.get("https://fmhy.net/mobile").respond(html=FMHY_MOBILE_HTML)
+        respx_mock.get("https://fmhy.net/mobile").respond(html=FMHY_PAGE_HTML)
 
         connector = FMHYConnector()
         await connector.initialize()

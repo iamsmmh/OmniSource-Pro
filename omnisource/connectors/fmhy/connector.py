@@ -1,11 +1,23 @@
 """FMHY (freemediaheckyeah) connector for OmniSource.
 
-Indexes the curated "iOS iPAs" listing from
-https://fmhy.net/mobile#ios-ipas .
+Indexes the Android / iOS app listing at https://fmhy.net/mobile across both
+platforms (the "cross platform" catalogue: Android APKs + iOS apps).
 
 fmhy.net is a VitePress static site, so the connector fetches the rendered
-mobile page and locates the "iOS iPAs" section in the HTML. Each list entry
-of the section is shaped like::
+mobile page and walks it top to bottom, tracking the **platform zone** from
+the section headings. The page is organized per platform::
+
+    #  Android / iOS                    (document title)
+    ## Android APKs                     (platform sections -> set the zone)
+    ### Modded APKs                     (subsections -> inherit the zone)
+    ...
+    ## Emulators                        (no platform in name -> inherit)
+    ...
+    ## iOS Tools
+    ## iOS iPAs
+    ...
+
+Each list entry of the page is shaped like::
 
     * 🌐 **[CyPwn](https://ipa.cypwn.xyz/)** - Tweaked App Library / [AltStore](...)
     * [IPALibrary](https://ipalibrary.me/) - Tweaked Apps
@@ -18,11 +30,14 @@ and is materialized as a repository schema:
   otherwise the first link of the entry)
 - **description** = the text after the `` - `` separator with the extra
   reference links stripped out
+- **platform** = the zone the entry appears in, overridden by an explicit
+  store link (Play Store / APK mirrors -> android, App Store -> ios)
 
-Entries without a resolvable label and URL (plain prose lines, tips) are
-skipped. The listing has no versioned releases, so ``get_releases`` /
-``get_assets`` return empty lists; the entries exist to be surfaced as
-applications (name, homepage, description) in the catalogue.
+Entries without a resolvable label and an absolute http(s) URL (plain prose
+lines, tips, outline/fragment links) are skipped. The listing has no
+versioned releases, so ``get_releases`` / ``get_assets`` return empty lists;
+the entries exist to be surfaced as applications (name, homepage,
+description, platform) in the catalogue.
 """
 
 import hashlib
@@ -55,7 +70,18 @@ from omnisource.processing.deduplication import slugify
 logger = get_logger(__name__)
 
 _USER_AGENT = "OmniSource/0.1.0"
-_SECTION_TITLE = "ios ipas"
+
+# Explicit store links are unambiguous platform signals and override the
+# section zone an entry appears in.
+_ANDROID_STORE_MARKERS = (
+    "play.google.com",
+    "apkmirror.com",
+    "apkpure.",
+    "apkcombo.com",
+    "f-droid.org",
+    "izzysoft.de",
+)
+_IOS_STORE_MARKERS = ("apps.apple.com",)
 
 # Zero-width characters FMHY uses in some labels (``⁠`` before certain names).
 _ZERO_WIDTH_RE = re.compile(r"[\u200b-\u200f\u202a-\u202e\u2060-\u2064\ufeff]")
@@ -95,10 +121,29 @@ def _clean_description(raw: str, label: str) -> str:
     return description.strip()
 
 
-class _ListEntry:
-    """Accumulator for one ``<li>`` inside the section being parsed."""
+def _store_platform(url: str) -> str | None:
+    """Platform implied by an explicit store link, if any."""
+    lowered = url.lower()
+    if any(marker in lowered for marker in _IOS_STORE_MARKERS):
+        return "ios"
+    if any(marker in lowered for marker in _ANDROID_STORE_MARKERS):
+        return "android"
+    return None
 
-    __slots__ = ("_in_strong", "_strong_parts", "anchors", "full_text", "strong_texts")
+
+class _ListEntry:
+    """Accumulator for one ``<li>`` while walking the page."""
+
+    __slots__ = (
+        "_anchors_before_first_strong",
+        "_in_strong",
+        "_saw_strong",
+        "_strong_parts",
+        "anchors",
+        "full_text",
+        "strong_texts",
+        "zone",
+    )
 
     def __init__(self) -> None:
         # (href, text, was_inside_strong) in document order
@@ -107,44 +152,64 @@ class _ListEntry:
         self.full_text: list[str] = []
         self._in_strong = False
         self._strong_parts: list[str] = []
+        # Platform zone in effect when the entry started (see _PageParser).
+        self.zone: str | None = None
+        # How many anchors appeared before the first <strong> opened. A
+        # leading <strong> is the entry's emphasized label ("**[CyPwn](u)**",
+        # "**PDALife**"); a <strong> after the links is a trailing note
+        # ("... - Call Recorder / **Check Local Call Recording Laws**").
+        self._anchors_before_first_strong = 0
+        self._saw_strong = False
 
 
-class _SectionParser(html_parser.HTMLParser):
-    """Extract list entries from the FMHY section whose heading matches.
+class _PageParser(html_parser.HTMLParser):
+    """Walk the rendered FMHY page, collecting list entries with their zone.
 
-    The section starts at the first heading containing ``section_title``
-    (case-insensitive) and ends at the next heading.
+    Top-level (``h1``/``h2``) section headings name the platform ("Android
+    APKs", "iOS Tools", "iOS iPAs"); headings without a platform in the name
+    (document title aside, e.g. "Emulators") inherit the current zone, and
+    deeper subsections ("Modded APKs", "Social Media Apps") always inherit.
+    Entries are only collected once a platform zone is known.
     """
 
     HEADING_TAGS = frozenset({"h1", "h2", "h3", "h4", "h5", "h6"})
+    ZONE_LEVEL = 2  # h1/h2 set the zone; h3+ subsections inherit
 
-    def __init__(self, section_title: str) -> None:
+    def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self._section_title = section_title.casefold()
         self.entries: list[_ListEntry] = []
-        self._in_heading = False
+        self.zone: str | None = None
+        self._heading_level: int | None = None
         self._heading_parts: list[str] = []
-        self._in_section = False
         self._entry: _ListEntry | None = None
         self._li_depth = 0
         self._in_anchor = False
         self._anchor_href: str | None = None
         self._anchor_parts: list[str] = []
 
+    @staticmethod
+    def _zone_from_title(title: str) -> str | None:
+        # "Android / iOS" (document title) names both; the page is laid out
+        # Android-first, so android wins.
+        if "android" in title:
+            return "android"
+        if "ios" in title:
+            return "ios"
+        return None
+
     # -- event handlers --------------------------------------------------------
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag in self.HEADING_TAGS:
-            if self._in_section and self.entries:
-                self._in_section = False
-            self._in_heading = True
+            self._heading_level = int(tag[1])
             self._heading_parts = []
             return
         if tag == "li":
-            if self._in_section:
+            if self.zone is not None:
                 self._li_depth += 1
                 if self._li_depth == 1:
                     self._entry = _ListEntry()
+                    self._entry.zone = self.zone
             return
         entry = self._entry
         if entry is None:
@@ -158,14 +223,17 @@ class _SectionParser(html_parser.HTMLParser):
         elif tag in {"strong", "b"}:
             entry._in_strong = True
             entry._strong_parts = []
+            if not entry._saw_strong:
+                entry._saw_strong = True
+                entry._anchors_before_first_strong = len(entry.anchors)
 
     def handle_endtag(self, tag: str) -> None:
         if tag in self.HEADING_TAGS:
-            if self._in_heading:
-                self._in_heading = False
+            level = self._heading_level
+            self._heading_level = None
+            if level is not None and level <= self.ZONE_LEVEL:
                 title = _WS_RE.sub(" ", "".join(self._heading_parts)).casefold()
-                if self._section_title in title:
-                    self._in_section = True
+                self.zone = self._zone_from_title(title) or self.zone
             return
         if tag == "li":
             if self._entry is not None and self._li_depth > 0:
@@ -188,7 +256,7 @@ class _SectionParser(html_parser.HTMLParser):
             entry._strong_parts = []
 
     def handle_data(self, data: str) -> None:
-        if self._in_heading:
+        if self._heading_level is not None:
             self._heading_parts.append(data)
             return
         entry = self._entry
@@ -201,21 +269,36 @@ class _SectionParser(html_parser.HTMLParser):
             entry._strong_parts.append(data)
 
 
-def _resolve_entry(entry: _ListEntry) -> dict[str, str] | None:
-    """Turn a parsed list entry into {name, url, description} or None."""
-    label = _clean_label(entry.strong_texts[0]) if entry.strong_texts else ""
-    anchors = [(href, text) for href, text, _ in entry.anchors if href and text]
-    if not label and anchors:
-        label = _clean_label(anchors[0][1])
-    if not label:
-        return None
+def _resolve_entry(entry: _ListEntry, zone: str) -> dict[str, str] | None:
+    """Turn a parsed list entry into {name, url, description, platform}.
 
-    if entry.strong_texts:
+    Returns None when the entry has no resolvable label, no absolute http(s)
+    URL, or no known platform.
+    """
+    anchors = [(href, text) for href, text, _ in entry.anchors if href and text]
+    # A <strong> that opens before any anchor is the entry's emphasized label
+    # ("**[CyPwn](u)**" or "**PDALife**"); a <strong> that follows the links
+    # is a trailing note ("... - Call Recorder / **Check Local Call
+    # Recording Laws**") and must not be mistaken for the label.
+    strong_is_label = bool(entry.strong_texts) and entry._anchors_before_first_strong == 0
+
+    label = ""
+    url = ""
+    if strong_is_label:
+        label = _clean_label(entry.strong_texts[0])
         emphasized = [href for href, _, inside in entry.anchors if inside and href]
         url = emphasized[0] if emphasized else (anchors[0][0] if anchors else "")
-    else:
-        url = anchors[0][0] if anchors else ""
-    if not url:
+    elif anchors:
+        label = _clean_label(anchors[0][1])
+        url = anchors[0][0]
+    if not label:
+        return None
+    # Fragment/relative links (page outline, in-page anchors) are not apps.
+    if not url.startswith(("http://", "https://")):
+        return None
+
+    platform = _store_platform(url) or zone
+    if platform not in ("android", "ios"):
         return None
 
     description = _clean_description("".join(entry.full_text), label)
@@ -226,24 +309,39 @@ def _resolve_entry(entry: _ListEntry) -> dict[str, str] | None:
     description = _WS_RE.sub(" ", description)
     description = _TRAILING_SEPS_RE.sub("", description)
     description = _LEADING_SEPS_RE.sub("", description)
-    return {"name": label, "url": url, "description": description.strip()}
+    return {
+        "name": label,
+        "url": url,
+        "description": description.strip(),
+        "platform": platform,
+    }
 
 
-def parse_fmhy_entries(html: str, section_title: str = "iOS iPAs") -> list[dict[str, str]]:
-    """Parse the FMHY section out of rendered page HTML."""
-    page = _SectionParser(section_title)
+def parse_fmhy_entries(html: str) -> list[dict[str, str]]:
+    """Parse the FMHY mobile page (Android + iOS) out of rendered HTML.
+
+    The listing cross-references apps between sections, so identical entries
+    (same name and URL) are collapsed to their first occurrence.
+    """
+    page = _PageParser()
     page.feed(html)
     page.close()
     entries: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
     for entry in page.entries:
-        resolved = _resolve_entry(entry)
-        if resolved is not None:
-            entries.append(resolved)
+        resolved = _resolve_entry(entry, entry.zone or "")
+        if resolved is None:
+            continue
+        key = (resolved["name"].casefold(), resolved["url"])
+        if key in seen:
+            continue
+        seen.add(key)
+        entries.append(resolved)
     return entries
 
 
 class FMHYConnector(SourceConnector):
-    """Connector for the fmhy.net mobile (iOS iPAs) listing."""
+    """Connector for the fmhy.net Android / iOS mobile listing."""
 
     source_name = "fmhy"
     source_type = "fmhy"
@@ -296,10 +394,10 @@ class FMHYConnector(SourceConnector):
         return response.text
 
     async def _get_entries(self) -> list[dict[str, str]]:
-        """Parse the section once per initialized connector instance."""
+        """Parse the page once per initialized connector instance."""
         if self._entries is None:
             html = await self._fetch_page()
-            self._entries = parse_fmhy_entries(html, "iOS iPAs")
+            self._entries = parse_fmhy_entries(html)
             logger.info("FMHY: parsed %d entries from %s", len(self._entries), self.page_url)
         return self._entries
 
@@ -312,7 +410,7 @@ class FMHYConnector(SourceConnector):
         limit: int = 50,
         **kwargs: Any,
     ) -> tuple[list[RepositorySchema], PageInfo]:
-        """Page through the iOS iPAs listing using an offset cursor."""
+        """Page through the Android / iOS listing using an offset cursor."""
         entries = await self._get_entries()
 
         offset = 0
@@ -349,7 +447,7 @@ class FMHYConnector(SourceConnector):
     async def get_repository(self, repository_id: str, **kwargs: Any) -> RepositorySchema:
         entries = await self._get_entries()
         for entry in entries:
-            external_id = self._external_id(entry["name"], entry["url"], entries)
+            external_id = self._external_id(entry, entries)
             if repository_id in (external_id, f"fmhy/{external_id}", entry["name"]):
                 return self._entry_to_repository(entry, entries)
         raise ConnectorError(
@@ -366,10 +464,19 @@ class FMHYConnector(SourceConnector):
         return []
 
     async def get_metadata(self, repository: RepositorySchema, **kwargs: Any) -> dict[str, Any]:
+        entries = await self._get_entries()
+        platform: str | None = None
+        for entry in entries:
+            if self._external_id(entry, entries) == repository.external_id:
+                platform = entry["platform"]
+                break
         return {
             "source": "fmhy",
             "homepage": repository.homepage,
-            "topics": ["ios", "ios-ipas", "ipa"],
+            # "platforms" is consumed by the sync service to associate the
+            # application with the target platform(s) for feed generation.
+            "platforms": [platform] if platform else [],
+            "topics": [platform] if platform else [],
         }
 
     async def health_check(self) -> ConnectorHealth:
@@ -401,19 +508,29 @@ class FMHYConnector(SourceConnector):
     # --- Helpers ----------------------------------------------------------------
 
     @staticmethod
-    def _external_id(name: str, url: str, entries: list[dict[str, str]]) -> str:
-        """Stable unique external id: name slug, hash-disambiguated on clashes."""
-        base = slugify(name) or "entry"
+    def _external_id(entry: dict[str, str], entries: list[dict[str, str]]) -> str:
+        """Stable unique external id for an entry.
+
+        Names are slugs; when the same name is listed more than once (the
+        listing covers both platforms, so e.g. "Brave" appears for Android
+        and iOS) the platform is appended, and a URL hash resolves any
+        remaining clash.
+        """
+        base = slugify(entry["name"]) or "entry"
         same_name = [e for e in entries if slugify(e["name"]) == base]
-        if len(same_name) <= 1:
+        if len(same_name) == 1:
             return base
-        digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:8]
-        return f"{base}-{digest}"
+        candidate = f"{base}-{entry['platform']}"
+        same_name_platform = [e for e in same_name if e["platform"] == entry["platform"]]
+        if len(same_name_platform) == 1:
+            return candidate
+        digest = hashlib.sha256(entry["url"].encode("utf-8")).hexdigest()[:8]
+        return f"{candidate}-{digest}"
 
     def _entry_to_repository(
         self, entry: dict[str, str], entries: list[dict[str, str]]
     ) -> RepositorySchema:
-        external_id = self._external_id(entry["name"], entry["url"], entries)
+        external_id = self._external_id(entry, entries)
         return RepositorySchema(
             external_id=external_id,
             full_name=f"fmhy/{external_id}",
@@ -424,5 +541,6 @@ class FMHYConnector(SourceConnector):
             api_url=None,
             status=RepositoryStatus.ACTIVE,
             visibility=RepositoryVisibility.PUBLIC,
+            topics=[entry["platform"]],
             source_type=self.source_type,
         )

@@ -77,7 +77,7 @@ class RepositorySyncService:
 
         repository_repo = RepositoryRepository(self.session)
         repositories = await repository_repo.list_repositories(
-            source_id=source.id, limit=limit or 1000
+            source_id=source.id, limit=limit or 5000
         )
 
         connector = create_connector(source_type)
@@ -116,7 +116,7 @@ class RepositorySyncService:
                     remaining = [
                         r
                         for r in await repository_repo.list_repositories(
-                            source_id=source.id, limit=limit or 1000
+                            source_id=source.id, limit=limit or 5000
                         )
                         if r.id not in processed
                     ]
@@ -197,18 +197,20 @@ class RepositorySyncService:
             logger.warning("Metadata extraction failed for %s: %s", repository.full_name, exc)
         await self._persist_enrichment(repository, metadata_payload, releases)
 
-        # Directory listings (e.g. FMHY's iOS iPAs index) are curated links,
-        # not code we can audit: default their applications to UNKNOWN rather
-        # than the open-source assumption used for code-hosting sources.
+        # Directory listings (e.g. FMHY's Android/iOS index) are curated
+        # links, not code we can audit: default their applications to UNKNOWN
+        # rather than the open-source assumption used for code-hosting sources.
         default_open_source_status = (
             OpenSourceStatus.UNKNOWN if connector.source_type == "fmhy" else None
         )
         app = await self._ensure_application(repository, default_open_source_status)
-        if connector.source_type == "fmhy":
-            # The FMHY listing is the iOS iPAs section: tag every entry with
-            # the iOS platform so it surfaces in the iOS feed (entries carry
-            # no release assets that platform detection could use).
-            platform = await self._get_or_create_platform("ios")
+        # Connectors that index directory listings hint the platform(s) their
+        # entries target via metadata "platforms" (FMHY tags Android vs iOS
+        # per entry); attach them so the app surfaces in the right feeds.
+        for platform_type in metadata_payload.get("platforms") or []:
+            if not isinstance(platform_type, str):
+                continue
+            platform = await self._get_or_create_platform(platform_type)
             if platform not in (app.platforms or []):
                 app.platforms.append(platform)
         await self._sync_visual_assets(app, repository)

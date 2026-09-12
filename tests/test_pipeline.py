@@ -124,14 +124,19 @@ class FmhyMockConnector(SourceConnector):
         return []
 
     async def get_metadata(self, repository, **kwargs):
-        return {"source": "fmhy", "homepage": repository.homepage, "topics": ["ios", "ios-ipas"]}
+        return {
+            "source": "fmhy",
+            "homepage": repository.homepage,
+            "platforms": ["ios"],
+            "topics": ["ios"],
+        }
 
     async def health_check(self):
         return ConnectorHealth(source="fmhy", healthy=True)
 
 
-async def test_fmhy_sync_creates_ios_app_without_releases(session):
-    """FMHY directory entries become iOS apps, UNKNOWN open-source, no releases."""
+async def test_fmhy_sync_tags_platform_and_unknown_status(session):
+    """FMHY directory entries become platform-tagged apps, UNKNOWN open-source, no releases."""
     source = Source(
         name="FMHY",
         source_type=SourceType.FMHY,
@@ -171,7 +176,7 @@ async def test_fmhy_sync_creates_ios_app_without_releases(session):
 
     # Directory listings are not auditable code: UNKNOWN, not assumed open-source.
     assert app.open_source_status == OpenSourceStatus.UNKNOWN
-    # The iOS iPAs section tags every entry with the iOS platform.
+    # The connector hints the entry's platform via metadata "platforms".
     assert [p.platform_type for p in app.platforms] == ["ios"]
     assert app.homepage == "https://ipa.cypwn.xyz/"
 

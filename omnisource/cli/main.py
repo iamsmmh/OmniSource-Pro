@@ -126,7 +126,9 @@ async def discover(source: str, limit: int, query: str | None) -> None:
             await fmhy_connector.initialize()
 
             try:
-                console.print("[cyan]Discovering from FMHY (iOS iPAs listing)...[/cyan]")
+                console.print(
+                    "[cyan]Discovering from FMHY (Android / iOS mobile listing)...[/cyan]"
+                )
                 repositories, page_info = await fmhy_connector.discover(
                     query=query,
                     limit=limit,
@@ -508,7 +510,7 @@ async def _create_default_data() -> None:
                 "source_type": SourceType.FMHY,
                 "base_url": "https://fmhy.net",
                 "api_url": None,
-                "description": "freemediaheckyeah mobile listing (iOS iPAs section)",
+                "description": "freemediaheckyeah Android / iOS mobile listing",
                 "is_active": True,
             },
         ]

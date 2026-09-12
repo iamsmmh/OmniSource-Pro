@@ -85,7 +85,7 @@ class SourceSettings(BaseSettings):
     FLATHUB_API_URL: str = Field(default="https://flathub.org/api/v1")
     FMHY_MOBILE_URL: str = Field(
         default="https://fmhy.net/mobile",
-        description="fmhy.net mobile page (iOS iPAs section) indexed by the FMHY connector",
+        description="fmhy.net mobile page (Android + iOS listings) indexed by the FMHY connector",
     )
     WEBHOOK_SECRET_GITHUB: str | None = Field(default=None)
     WEBHOOK_SECRET_GITLAB: str | None = Field(default=None)
