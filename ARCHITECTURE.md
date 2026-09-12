@@ -15,7 +15,7 @@ OmniSource is an autonomous, continuously running software discovery, indexing, 
        │                 │                 │
     Forgejo          F-Droid          Flathub
        │                 │                 │
-    Winget           Homebrew        Other Sources
+    Winget           Homebrew           FMHY
        └─────────────────┼─────────────────┘
                          ↓
                  OMNISOURCE INGESTION
@@ -68,6 +68,7 @@ Plugin-style architecture for different software sources.
 - `flathub/` - Flathub connector
 - `winget/` - Winget connector (winget-pkgs manifests)
 - `homebrew/` - Homebrew connector (formulae + casks)
+- `fmhy/` - FMHY connector (iOS iPAs listing from fmhy.net/mobile)
 - `registry.py` - Source-type → connector registry
 
 ### 2. Crawler (`omnisource/crawler/`)

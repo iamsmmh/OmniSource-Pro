@@ -6,15 +6,19 @@ from sqlalchemy import func, select, update
 
 from omnisource.automation.jobs.index import run_indexing
 from omnisource.automation.jobs.validate import run_validation
+from omnisource.connectors.base import ConnectorHealth, PageInfo, SourceConnector
 from omnisource.core.models.application import (
     Application,
+    OpenSourceStatus,
     application_architectures,
     application_platforms,
 )
 from omnisource.core.models.asset import Asset, AssetStatus
+from omnisource.core.models.release import Release
 from omnisource.core.models.repository import Repository, RepositoryMetadata
 from omnisource.core.models.scores import TrustScore
 from omnisource.core.models.source import Source, SourceType
+from omnisource.core.schemas.repository import RepositorySchema
 from omnisource.crawler.discovery import DiscoveryService
 from omnisource.crawler.sync import RepositorySyncService
 from omnisource.feeds.generator import FeedGenerator
@@ -86,6 +90,95 @@ async def test_sync_repository_builds_application_graph(session, mock_connector)
 
     scores = (await session.execute(select(TrustScore))).scalars().all()
     assert len(scores) == 1
+
+
+class FmhyMockConnector(SourceConnector):
+    """A minimal FMHY-like connector: a directory entry with no releases."""
+
+    source_name = "fmhy"
+    source_type = "fmhy"
+
+    async def initialize(self) -> None:
+        pass
+
+    async def close(self) -> None:
+        pass
+
+    async def discover(self, query=None, cursor=None, limit=100, **kwargs):
+        return [], PageInfo()
+
+    async def get_repository(self, repository_id, **kwargs):
+        return RepositorySchema(
+            external_id="cypwn",
+            full_name="fmhy/cypwn",
+            name="CyPwn",
+            description="Tweaked App Library",
+            homepage="https://ipa.cypwn.xyz/",
+            html_url="https://ipa.cypwn.xyz/",
+        )
+
+    async def get_releases(self, repository, **kwargs):
+        return []
+
+    async def get_assets(self, release, **kwargs):
+        return []
+
+    async def get_metadata(self, repository, **kwargs):
+        return {"source": "fmhy", "homepage": repository.homepage, "topics": ["ios", "ios-ipas"]}
+
+    async def health_check(self):
+        return ConnectorHealth(source="fmhy", healthy=True)
+
+
+async def test_fmhy_sync_creates_ios_app_without_releases(session):
+    """FMHY directory entries become iOS apps, UNKNOWN open-source, no releases."""
+    source = Source(
+        name="FMHY",
+        source_type=SourceType.FMHY,
+        base_url="https://fmhy.net",
+        is_active=True,
+    )
+    session.add(source)
+    await session.flush()
+
+    repository = Repository(
+        source_id=source.id,
+        external_id="cypwn",
+        full_name="fmhy/cypwn",
+        name="CyPwn",
+        description="Tweaked App Library",
+        homepage="https://ipa.cypwn.xyz/",
+        html_url="https://ipa.cypwn.xyz/",
+    )
+    session.add(repository)
+    await session.flush()
+    await session.commit()
+
+    connector = FmhyMockConnector()
+    await connector.initialize()
+    try:
+        result = await RepositorySyncService(session).sync_repository(connector, repository)
+    finally:
+        await connector.close()
+    await session.commit()
+
+    assert result["releases"] == 0
+    assert result["assets"] == 0
+
+    app = (
+        await session.execute(select(Application).where(Application.app_id == "fmhy/cypwn"))
+    ).scalar_one()
+
+    # Directory listings are not auditable code: UNKNOWN, not assumed open-source.
+    assert app.open_source_status == OpenSourceStatus.UNKNOWN
+    # The iOS iPAs section tags every entry with the iOS platform.
+    assert [p.platform_type for p in app.platforms] == ["ios"]
+    assert app.homepage == "https://ipa.cypwn.xyz/"
+
+    release_count = await session.scalar(select(func.count()).select_from(Release))
+    asset_count = await session.scalar(select(func.count()).select_from(Asset))
+    assert release_count == 0
+    assert asset_count == 0
 
 
 async def test_sync_source_commits_batch(session, mock_connector):

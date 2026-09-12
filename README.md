@@ -98,7 +98,7 @@ API_DEBUG=true
        │                 │                 │
     Forgejo          F-Droid          Flathub
        │                 │                 │
-    Winget           Homebrew        Other Sources
+    Winget           Homebrew           FMHY
        └─────────────────┼─────────────────┘
                          ↓
                  OMNISOURCE INGESTION
@@ -189,7 +189,7 @@ API_DEBUG=true
 ### ✅ Implemented
 
 - **Database Models**: Complete SQLAlchemy 2.x models for all entities
-- **Connectors**: GitHub, GitLab, Codeberg, Forgejo, F-Droid, Flathub, Winget, Homebrew
+- **Connectors**: GitHub, GitLab, Codeberg, Forgejo, F-Droid, Flathub, Winget, Homebrew, FMHY (iOS iPAs listing)
 - **Configuration**: Pydantic-based settings with environment variable support
 - **API Framework**: FastAPI with OpenAPI documentation
 - **Logging**: Structured JSON logging with configurable levels
@@ -236,13 +236,14 @@ API_DEBUG=true
 | Source | Status | Priority |
 |--------|--------|----------|
 | GitHub | ✅ Implemented | #1 |
-| GitLab | 📋 Planned | #2 |
-| Codeberg | 📋 Planned | #3 |
-| Forgejo | 📋 Planned | #4 |
-| F-Droid | 📋 Planned | #5 |
-| Flathub | 📋 Planned | #6 |
-| Winget | 📋 Planned | #7 |
-| Homebrew | 📋 Planned | #8 |
+| GitLab | ✅ Implemented | #2 |
+| Codeberg | ✅ Implemented | #3 |
+| Forgejo | ✅ Implemented | #4 |
+| F-Droid | ✅ Implemented | #5 |
+| Flathub | ✅ Implemented | #6 |
+| Winget | ✅ Implemented | #7 |
+| Homebrew | ✅ Implemented | #8 |
+| FMHY (iOS iPAs) | ✅ Implemented | #9 |
 
 ## 🛠️ Development
 

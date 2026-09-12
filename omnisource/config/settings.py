@@ -83,6 +83,10 @@ class SourceSettings(BaseSettings):
     HOMEBREW_API_URL: str = Field(default="https://formulae.brew.sh/api")
     FDROID_API_URL: str = Field(default="https://f-droid.org/api/v1")
     FLATHUB_API_URL: str = Field(default="https://flathub.org/api/v1")
+    FMHY_MOBILE_URL: str = Field(
+        default="https://fmhy.net/mobile",
+        description="fmhy.net mobile page (iOS iPAs section) indexed by the FMHY connector",
+    )
     WEBHOOK_SECRET_GITHUB: str | None = Field(default=None)
     WEBHOOK_SECRET_GITLAB: str | None = Field(default=None)
     WEBHOOK_SECRET_GITEA: str | None = Field(default=None)

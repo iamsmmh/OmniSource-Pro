@@ -28,6 +28,7 @@ class SourceType(str, Enum):
     FLATHUB = "flathub"
     WINGET = "winget"
     HOMEBREW = "homebrew"
+    FMHY = "fmhy"
     OTHER = "other"
 
 
