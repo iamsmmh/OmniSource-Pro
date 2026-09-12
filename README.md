@@ -189,7 +189,7 @@ API_DEBUG=true
 ### ✅ Implemented
 
 - **Database Models**: Complete SQLAlchemy 2.x models for all entities
-- **Connectors**: GitHub, GitLab, Codeberg, Forgejo, F-Droid, Flathub, Winget, Homebrew, FMHY (iOS iPAs listing)
+- **Connectors**: GitHub, GitLab, Codeberg, Forgejo, F-Droid, Flathub, Winget, Homebrew, FMHY (Android / iOS mobile listing)
 - **Configuration**: Pydantic-based settings with environment variable support
 - **API Framework**: FastAPI with OpenAPI documentation
 - **Logging**: Structured JSON logging with configurable levels
@@ -243,7 +243,7 @@ API_DEBUG=true
 | Flathub | ✅ Implemented | #6 |
 | Winget | ✅ Implemented | #7 |
 | Homebrew | ✅ Implemented | #8 |
-| FMHY (iOS iPAs) | ✅ Implemented | #9 |
+| FMHY (Android / iOS mobile) | ✅ Implemented | #9 |
 
 ## 🛠️ Development
 

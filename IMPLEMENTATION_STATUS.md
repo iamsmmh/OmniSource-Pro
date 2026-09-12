@@ -111,7 +111,7 @@
 - [x] Flathub connector (REST v1 + appstream v2)
 - [x] Winget connector (winget-pkgs manifests via GitHub API)
 - [x] Homebrew connector (formulae + casks JSON API)
-- [x] FMHY connector (iOS iPAs section of fmhy.net/mobile)
+- [x] FMHY connector (Android / iOS mobile listing from fmhy.net/mobile)
 
 ### Stage 12: Production
 - [x] Docker configuration
