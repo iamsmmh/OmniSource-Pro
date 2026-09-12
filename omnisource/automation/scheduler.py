@@ -41,6 +41,16 @@ def build_default_scheduler() -> AsyncScheduler:
         lambda: _run_with_session(run_sync, source_type="github"),
     )
     scheduler.add_task(
+        "discover_fmhy",
+        sync_interval,
+        lambda: _run_with_session(run_discovery, source_type="fmhy"),
+    )
+    scheduler.add_task(
+        "sync_fmhy",
+        sync_interval,
+        lambda: _run_with_session(run_sync, source_type="fmhy"),
+    )
+    scheduler.add_task(
         "validate",
         validation_interval,
         lambda: _run_with_session(run_validation),

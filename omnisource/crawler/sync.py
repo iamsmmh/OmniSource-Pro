@@ -197,7 +197,20 @@ class RepositorySyncService:
             logger.warning("Metadata extraction failed for %s: %s", repository.full_name, exc)
         await self._persist_enrichment(repository, metadata_payload, releases)
 
-        app = await self._ensure_application(repository)
+        # Directory listings (e.g. FMHY's iOS iPAs index) are curated links,
+        # not code we can audit: default their applications to UNKNOWN rather
+        # than the open-source assumption used for code-hosting sources.
+        default_open_source_status = (
+            OpenSourceStatus.UNKNOWN if connector.source_type == "fmhy" else None
+        )
+        app = await self._ensure_application(repository, default_open_source_status)
+        if connector.source_type == "fmhy":
+            # The FMHY listing is the iOS iPAs section: tag every entry with
+            # the iOS platform so it surfaces in the iOS feed (entries carry
+            # no release assets that platform detection could use).
+            platform = await self._get_or_create_platform("ios")
+            if platform not in (app.platforms or []):
+                app.platforms.append(platform)
         await self._sync_visual_assets(app, repository)
 
         release_repo = ReleaseRepository(self.session)
@@ -344,7 +357,11 @@ class RepositorySyncService:
                 )
         await self.session.flush()
 
-    async def _ensure_application(self, repository: Repository) -> Application:
+    async def _ensure_application(
+        self,
+        repository: Repository,
+        default_open_source_status: OpenSourceStatus | None = None,
+    ) -> Application:
         """Get or create the application for a repository."""
         result = await self.session.execute(
             select(Application)
@@ -371,7 +388,7 @@ class RepositorySyncService:
                 short_description=(repository.description or "")[:500] or None,
                 long_description=repository.description,
                 homepage=repository.homepage,
-                open_source_status=OpenSourceStatus.OPEN_SOURCE,
+                open_source_status=default_open_source_status or OpenSourceStatus.OPEN_SOURCE,
                 is_active=True,
             )
             self.session.add(app)

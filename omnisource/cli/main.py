@@ -96,7 +96,7 @@ async def bootstrap(force: bool) -> None:
 @click.option(
     "--source",
     "-s",
-    type=click.Choice(["github", "gitlab", "all"]),
+    type=click.Choice(["github", "gitlab", "fmhy", "all"]),
     default="github",
     help="Source to discover from",
 )
@@ -119,6 +119,26 @@ async def discover(source: str, limit: int, query: str | None) -> None:
     console.print(Panel(f"[bold blue]Discovering from {source}[/bold blue]", border_style="blue"))
 
     try:
+        if source in {"fmhy", "all"}:
+            from omnisource.connectors.fmhy import FMHYConnector
+
+            fmhy_connector = FMHYConnector()
+            await fmhy_connector.initialize()
+
+            try:
+                console.print("[cyan]Discovering from FMHY (iOS iPAs listing)...[/cyan]")
+                repositories, page_info = await fmhy_connector.discover(
+                    query=query,
+                    limit=limit,
+                )
+
+                console.print(f"[green]✓ Discovered {len(repositories)} apps[/green]")
+                console.print(f"  Total: {page_info.total}")
+                console.print(f"  Page: {page_info.page}/{page_info.total_pages}")
+
+            finally:
+                await fmhy_connector.close()
+
         if source in {"github", "all"}:
             from omnisource.connectors.github import GitHubConnector
 
@@ -464,6 +484,7 @@ async def _create_default_data() -> None:
                 "source_type": SourceType.GITHUB,
                 "base_url": "https://github.com",
                 "api_url": "https://api.github.com",
+                "description": None,
                 "is_active": True,
             },
             {
@@ -471,6 +492,7 @@ async def _create_default_data() -> None:
                 "source_type": SourceType.GITLAB,
                 "base_url": "https://gitlab.com",
                 "api_url": "https://gitlab.com/api/v4",
+                "description": None,
                 "is_active": True,
             },
             {
@@ -478,6 +500,15 @@ async def _create_default_data() -> None:
                 "source_type": SourceType.CODEBERG,
                 "base_url": "https://codeberg.org",
                 "api_url": "https://codeberg.org/api/v1",
+                "description": None,
+                "is_active": True,
+            },
+            {
+                "name": "FMHY",
+                "source_type": SourceType.FMHY,
+                "base_url": "https://fmhy.net",
+                "api_url": None,
+                "description": "freemediaheckyeah mobile listing (iOS iPAs section)",
                 "is_active": True,
             },
         ]

@@ -12,6 +12,7 @@ _CONNECTOR_PATHS: dict[str, str] = {
     "flathub": "omnisource.connectors.flathub.connector:FlathubConnector",
     "winget": "omnisource.connectors.winget.connector:WingetConnector",
     "homebrew": "omnisource.connectors.homebrew.connector:HomebrewConnector",
+    "fmhy": "omnisource.connectors.fmhy.connector:FMHYConnector",
 }
 
 _connector_cache: dict[str, type[SourceConnector]] = {}
