@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from omnisource.api.dependencies import get_db
+from omnisource.api.envelope import pagination_envelope, success
 from omnisource.config.logging import get_logger
 from omnisource.core.schemas.omnistore import PaginatedApps
 from omnisource.intelligence.analytics_service import AnalyticsService
@@ -37,7 +38,7 @@ async def _record_search(
         logger.debug("Search event recording failed", exc_info=True)
 
 
-@router.get("", response_model=PaginatedApps)
+@router.get("")
 async def search_apps(
     q: str | None = Query(default=None, description="Search query"),
     platform: str | None = Query(default=None, description="Filter by platform"),
@@ -64,7 +65,7 @@ async def search_apps(
         description="Blend embedding similarity into the ranking (requires configured AI provider)",
     ),
     session=Depends(get_db),
-) -> PaginatedApps:
+) -> dict:
     """
     Search applications with full-text search and filtering.
     """
@@ -92,7 +93,15 @@ async def search_apps(
         await _record_search(
             session, q or "", len(result.items), int((time.perf_counter() - started) * 1000)
         )
-        return result
+        return success(
+            data={"items": [app.model_dump(mode="json") for app in result.items]},
+            meta={
+                "freshness": result.freshness,
+                "backend": backend,
+                "query": q,
+            },
+            pagination=pagination_envelope(page, per_page, result.total),
+        )
 
     except Exception as e:
         logger.error(f"Search failed: {e}")
@@ -131,7 +140,7 @@ async def search_suggestions(
         merged.append(suggestion)
         if len(merged) >= limit:
             break
-    return {"query": q, "suggestions": merged}
+    return success(data={"suggestions": merged}, meta={"query": q})
 
 
 async def rerank_hybrid(

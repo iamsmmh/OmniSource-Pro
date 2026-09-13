@@ -96,13 +96,28 @@ async def init_db() -> AsyncEngine:
     # Import all models to register them with SQLAlchemy
     from omnisource.core.models import Base
 
-    async with engine.begin() as conn:
-        # Enable UUID extension if PostgreSQL
-        if "postgresql" in str(engine.url):
-            await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "pgcrypto"'))
+    # Enable the UUID extension on PostgreSQL when the server supports it.
+    # Run in its own transaction: a failure there (minimal server builds
+    # without the pgcrypto contrib module) must not abort the schema
+    # creation that follows. UUIDs themselves are generated in Python.
+    if "postgresql" in str(engine.url):
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "pgcrypto"'))
+        except Exception:
+            logger.warning(
+                "pgcrypto extension unavailable; continuing (UUIDs are generated client-side)"
+            )
 
-        # Create all tables
+    # Create all tables and any missing catalogue views (idempotent). This
+    # covers fresh databases bootstrapped through create_all without the
+    # migration chain; migrated databases already have the views, so this is
+    # a no-op there.
+    from omnisource.core.database.catalog_views import ensure_catalog_views
+
+    async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(ensure_catalog_views)
 
     return engine
 

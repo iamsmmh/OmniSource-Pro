@@ -9,10 +9,17 @@ All ``/api/v1`` data endpoints answer with:
         "pagination": <list endpoints only: page, per_page, total, total_pages>
     }
 
-Exceptions: signed ``/feeds/*`` endpoints keep their signed-feed contract,
-``/api/v1/app/{id}`` keeps the legacy OmniStore contract, and error
-responses use FastAPI's ``{"detail": ...}`` shape (handled by the global
-exception handler).
+Documented exceptions (intentionally kept on their own contracts):
+
+* ``/feeds/*`` and ``/api/v1/feeds/*`` - signed feed payloads consumed by
+  Omni clients (signature covers the raw body),
+* ``/api/v1/app/{id}`` - legacy OmniStore single-app contract,
+* ``/api/v1/favorites`` - authenticated OmniStore client contract,
+* ``/health*`` - liveness/readiness probes,
+* admin/ops endpoints (``/api/v1/admin/*``, webhook receivers) -
+  operational status payloads,
+* error responses use FastAPI's ``{"detail": ...}`` shape (handled by the
+  global exception handler).
 """
 
 from __future__ import annotations

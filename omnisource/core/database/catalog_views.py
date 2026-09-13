@@ -221,3 +221,25 @@ def drop_catalog_views(bind: sa.engine.Connection) -> None:
     """Drop every catalogue view that exists on the bound database."""
     for view_name in CATALOG_VIEW_NAMES:
         drop_catalog_view(bind, view_name)
+
+
+def ensure_catalog_views(bind: sa.engine.Connection) -> None:
+    """Create any missing catalogue view (idempotent, never drops).
+
+    Used by application startup so a database that has only had its tables
+    created (without the migration chain) still serves the catalogue views.
+    On PostgreSQL the views are refreshed once after creation.
+    """
+    dialect = bind.dialect.name
+    definitions = CATALOG_VIEWS.get(dialect)
+    if definitions is None:
+        return  # dialect without catalogue views (e.g. in-memory tests)
+    existing = existing_catalog_views(bind)
+    created = False
+    for view_name in definitions:
+        if view_name not in existing:
+            create_catalog_view(bind, view_name)
+            created = True
+    if dialect == "postgresql" and created:
+        for view_name in definitions:
+            bind.execute(sa.text(f"REFRESH MATERIALIZED VIEW {view_name}"))

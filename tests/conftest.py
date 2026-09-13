@@ -13,11 +13,13 @@ import sqlalchemy as sa
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("MEILISEARCH_URL", "")  # disable search indexing in tests
+os.environ.setdefault("REDIS_URL", "")  # disable the Redis cache tier (hermetic tests)
 
 from omnisource.config.settings import reload_settings
 
 reload_settings()
 
+from omnisource.cache.store import reset_cache_store
 from omnisource.connectors.base import (
     ConnectorHealth,
     PageInfo,
@@ -133,6 +135,18 @@ class MockConnector(SourceConnector):
 
     async def health_check(self):
         return ConnectorHealth(source="github", healthy=True)
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def response_cache_isolation():
+    """Discard the response-cache store before and after every test.
+
+    The store is a process-wide singleton; resetting it keeps the in-process
+    LRU hermetic so no cached response can leak between tests.
+    """
+    await reset_cache_store()
+    yield
+    await reset_cache_store()
 
 
 @pytest_asyncio.fixture

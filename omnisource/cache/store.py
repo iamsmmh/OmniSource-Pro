@@ -222,4 +222,31 @@ async def get_cache_store() -> ResponseCacheStore:
     return _store_instance
 
 
-__all__ = ["CachedResponse", "ResponseCacheStore", "get_cache_store", "response_key", "tag_key"]
+async def reset_cache_store() -> None:
+    """Discard the process-wide store (test isolation / reconfiguration).
+
+    Closes the underlying Redis connection if one was opened and drops the
+    in-process LRU so the next ``get_cache_store`` call builds a clean store.
+    """
+    global _store_instance
+    async with _store_lock:
+        store = _store_instance
+        _store_instance = None
+    if store is not None:
+        store.clear_local()
+        client = store._redis
+        if client is not None:
+            try:
+                await client.aclose()
+            except Exception as exc:
+                logger.debug("Closing cache Redis client during reset failed: %s", exc)
+
+
+__all__ = [
+    "CachedResponse",
+    "ResponseCacheStore",
+    "get_cache_store",
+    "reset_cache_store",
+    "response_key",
+    "tag_key",
+]

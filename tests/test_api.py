@@ -1,5 +1,7 @@
 """Smoke tests for the FastAPI surface using an in-process ASGI transport."""
 
+from unittest.mock import patch
+
 import httpx
 
 from omnisource.api.main import app
@@ -68,7 +70,45 @@ async def test_search_endpoint(seeded_application):
     async with await _client() as client:
         response = await client.get("/api/v1/search", params={"q": "local"})
     assert response.status_code == 200
-    assert response.json()["total"] == 1
+    body = response.json()
+    assert body["success"] is True
+    assert body["pagination"]["total"] == 1
+    assert body["data"]["items"][0]["id"] == "localsend"
+    assert body["meta"]["backend"] == "database"
+
+
+async def test_collections_endpoints(seeded_application):
+    headers = {"X-OmniStore-Subject": "test-user"}
+    async with await _client() as client:
+        with patch("omnisource.api.security.APIKeyAuth.verify", return_value=True):
+            created = await client.post(
+                "/api/v1/collections",
+                json={"name": "My apps", "is_public": True},
+                headers=headers,
+            )
+            assert created.status_code == 201
+            collection = created.json()["data"]
+            assert created.json()["success"] is True
+
+            added = await client.post(
+                f"/api/v1/collections/{collection['id']}/apps",
+                json={"app_id": "localsend"},
+                headers=headers,
+            )
+            assert added.status_code == 200
+            assert len(added.json()["data"]["items"]) == 1
+
+            mine = await client.get("/api/v1/collections/mine", headers=headers)
+            assert mine.status_code == 200
+            assert mine.json()["success"] is True
+            assert mine.json()["pagination"]["total"] == 1
+
+        public = await client.get("/api/v1/collections")
+        assert public.status_code == 200
+        public_body = public.json()
+        assert public_body["success"] is True
+        assert public_body["pagination"]["total"] == 1
+        assert public_body["data"]["items"][0]["id"] == collection["id"]
 
 
 async def test_linux_feed_endpoint(seeded_application):
