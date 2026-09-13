@@ -1,6 +1,6 @@
 """Score models for trust, quality, and popularity."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, func
@@ -23,7 +23,7 @@ class ScoreFactor(Base):
     normalized_score: Mapped[float] = mapped_column(Float, default=0.0)
     factors: Mapped[dict] = mapped_column(JSON, default=dict)
     calculated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(UTC), nullable=False
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     calculated_by: Mapped[str | None] = mapped_column(String(100))
 

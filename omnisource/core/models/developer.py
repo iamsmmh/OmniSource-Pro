@@ -1,9 +1,10 @@
 """Developer and organization models."""
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omnisource.core.models.base import Base
@@ -52,6 +53,10 @@ class Organization(Base):
     avatar_url: Mapped[str | None] = mapped_column(String(500))
     location: Mapped[str | None] = mapped_column(String(255))
     members_count: Mapped[int | None] = mapped_column(Integer)
+    # Org-level attestation: the organization identity was verified by an
+    # operator (feeds the "org verified" trust signal, worth 20 points).
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Relationships
     applications: Mapped[list["Application"]] = relationship(

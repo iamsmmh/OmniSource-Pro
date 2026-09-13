@@ -1,5 +1,6 @@
 """Database models for OmniSource."""
 
+from omnisource.core.models.analytics import DownloadEvent, SearchEvent, ViewEvent
 from omnisource.core.models.application import Application, ApplicationRelationship
 from omnisource.core.models.asset import Asset, AssetValidation
 from omnisource.core.models.base import Base
@@ -14,13 +15,23 @@ from omnisource.core.models.experience import (
     UserFavorite,
 )
 from omnisource.core.models.license import License
-from omnisource.core.models.notification import NotificationEvent, WebhookSubscription
+from omnisource.core.models.notification import (
+    NotificationEvent,
+    WebhookDelivery,
+    WebhookDeliveryStatus,
+    WebhookSubscription,
+)
 from omnisource.core.models.platform import Architecture, Platform
 from omnisource.core.models.quarantine import Quarantine, SecurityScan, SecurityStatus
 from omnisource.core.models.release import Release, ReleaseAsset, ReleaseHistory
 from omnisource.core.models.repository import Repository, RepositoryMetadata
 from omnisource.core.models.scores import PopularityScore, QualityScore, TrustScore
 from omnisource.core.models.screenshot import Icon, Screenshot
+from omnisource.core.models.security_profile import (
+    AppSecurityProfile,
+    VerificationStatus,
+    compute_trust_score,
+)
 from omnisource.core.models.source import Source, SourceHealth
 from omnisource.core.models.sync import SyncJob, SyncState
 from omnisource.core.models.validation import ValidationResult
@@ -28,6 +39,7 @@ from omnisource.core.models.validation import ValidationResult
 __all__ = [
     "AnalyticsEvent",
     "AppEmbedding",
+    "AppSecurityProfile",
     "Application",
     "ApplicationRelationship",
     "Architecture",
@@ -38,6 +50,7 @@ __all__ = [
     "Collection",
     "CollectionItem",
     "Developer",
+    "DownloadEvent",
     "Icon",
     "InteractionType",
     "License",
@@ -53,6 +66,7 @@ __all__ = [
     "Repository",
     "RepositoryMetadata",
     "Screenshot",
+    "SearchEvent",
     "SecurityScan",
     "SecurityStatus",
     "Source",
@@ -63,5 +77,10 @@ __all__ = [
     "TrustScore",
     "UserFavorite",
     "ValidationResult",
+    "VerificationStatus",
+    "ViewEvent",
+    "WebhookDelivery",
+    "WebhookDeliveryStatus",
     "WebhookSubscription",
+    "compute_trust_score",
 ]

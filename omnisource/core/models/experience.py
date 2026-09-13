@@ -5,7 +5,7 @@ OmniStore subject into an HMAC-derived ``subject_hash`` before creating any of
 these records.  That keeps this service from becoming a second identity store.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
@@ -106,7 +106,7 @@ class AnalyticsEvent(Base):
     )
     platform: Mapped[str | None] = mapped_column(String(32), index=True)
     occurred_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(UTC), nullable=False, index=True
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
     dimensions: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
 
