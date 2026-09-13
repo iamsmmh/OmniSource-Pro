@@ -1,6 +1,6 @@
 """Asset models for downloadable files."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import Enum
 from typing import Optional
 from uuid import UUID, uuid4
@@ -149,7 +149,7 @@ class AssetValidation(Base):
     validation_errors: Mapped[list[str]] = mapped_column(JSON, default=list)
     warnings: Mapped[list[str]] = mapped_column(JSON, default=list)
     validated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(UTC), nullable=False
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     validated_by: Mapped[str | None] = mapped_column(String(100))
     retry_count: Mapped[int] = mapped_column(Integer, default=0)

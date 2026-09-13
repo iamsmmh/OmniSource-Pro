@@ -11,6 +11,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
+from starlette.middleware.gzip import GZipMiddleware
 
 from omnisource.config.logging import get_logger, setup_logging
 from omnisource.config.settings import get_settings
@@ -133,6 +134,7 @@ from omnisource.api.routes import (
     integration_router,
     latest_router,
     platforms_router,
+    popular_router,
     recommendations_router,
     releases_router,
     search_router,
@@ -140,6 +142,7 @@ from omnisource.api.routes import (
     stats_router,
     trending_router,
     trust_router,
+    webhook_management_router,
 )
 
 app.include_router(apps_router, prefix="/api/v1/apps", tags=["apps"])
@@ -150,6 +153,7 @@ app.include_router(platforms_router, prefix="/api/v1/platforms", tags=["platform
 app.include_router(developers_router, prefix="/api/v1/developers", tags=["developers"])
 app.include_router(trending_router, prefix="/api/v1/trending", tags=["trending"])
 app.include_router(latest_router, prefix="/api/v1/latest", tags=["latest"])
+app.include_router(popular_router, prefix="/api/v1/popular", tags=["popular"])
 app.include_router(stats_router, prefix="/api/v1/stats", tags=["stats"])
 app.include_router(
     recommendations_router, prefix="/api/v1/recommendations", tags=["recommendations"]
@@ -180,6 +184,8 @@ app.add_middleware(ResponseCacheMiddleware)
 app.add_middleware(MetricsMiddleware)
 app.add_middleware(RateLimitMiddleware, limiter=build_rate_limiter())
 configure_app_auth(app)
+# Compression outermost: gzip JSON responses for clients that accept it.
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
 @app.get("/metrics", include_in_schema=False, tags=["observability"])
@@ -199,6 +205,12 @@ app.include_router(
     admin_router, prefix="/api/v1/admin", tags=["admin"], dependencies=[Depends(require_api_key)]
 )
 app.include_router(webhooks_router, prefix="/api/v1/webhooks", tags=["webhooks"])
+app.include_router(
+    webhook_management_router,
+    prefix="/api/v1/webhooks",
+    tags=["webhooks"],
+    dependencies=[Depends(require_api_key)],
+)
 
 
 # Root endpoint

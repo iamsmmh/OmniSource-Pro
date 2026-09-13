@@ -1,22 +1,29 @@
 """
 Apps API routes for OmniSource.
 
-Provides endpoints for listing and retrieving applications.
+Endpoints (all using the {success, data, meta, pagination} envelope):
+
+* ``GET /api/v1/apps``                        - filtered, sorted, paginated list
+* ``GET /api/v1/apps/featured``               - featured catalogue (materialized view)
+* ``GET /api/v1/apps/recent``                 - recently updated (materialized view)
+* ``GET /api/v1/apps/most-downloaded``        - most downloaded (materialized view)
+* ``GET /api/v1/apps/{app_id}``               - single application detail
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from omnisource.api.dependencies import get_db
+from omnisource.api.envelope import pagination_envelope, success
 from omnisource.config.logging import get_logger
 from omnisource.core.repositories.application import ApplicationRepository
-from omnisource.core.schemas.omnistore import OmniStoreApp, PaginatedApps
+from omnisource.core.repositories.catalog import CatalogRepository
 
 logger = get_logger(__name__)
 
 router = APIRouter()
 
 
-@router.get("", response_model=PaginatedApps)
+@router.get("")
 async def list_apps(
     q: str | None = Query(default=None, description="Search query"),
     platform: str | None = Query(default=None, description="Filter by platform"),
@@ -38,16 +45,10 @@ async def list_apps(
     page: int = Query(default=1, ge=1, description="Page number"),
     per_page: int = Query(default=30, ge=1, le=100, description="Items per page"),
     session=Depends(get_db),
-) -> PaginatedApps:
-    """
-    List applications with optional filtering and sorting.
-
-    This endpoint returns a paginated list of applications matching the specified criteria.
-    """
+) -> dict:
+    """List applications with optional filtering, sorting, and pagination."""
     try:
         repo = ApplicationRepository(session)
-
-        # Build filter parameters
         filters = {
             "q": q,
             "platform": platform,
@@ -61,38 +62,64 @@ async def list_apps(
             "updated_since": updated_since,
             "sort": sort,
         }
-
-        # Get paginated results
         result = await repo.get_apps_paginated(page=page, per_page=per_page, **filters)
-
-        return result
-
+        return success(
+            data={"items": [app.model_dump(mode="json") for app in result.items]},
+            meta={"freshness": result.freshness},
+            pagination=pagination_envelope(page, per_page, result.total),
+        )
     except Exception as e:
-        logger.error(f"Failed to list apps: {e}")
+        logger.error("Failed to list apps: %s", e)
         raise HTTPException(status_code=500, detail="Service temporarily unavailable") from e
 
 
-@router.get("/{app_id}", response_model=OmniStoreApp)
-async def get_app(
-    app_id: str,
+@router.get("/featured")
+async def featured_apps(
+    limit: int = Query(default=30, ge=1, le=100),
     session=Depends(get_db),
-) -> OmniStoreApp:
-    """
-    Get a specific application by ID or slug.
+) -> dict:
+    """Featured applications (materialized view ``mv_featured_apps``)."""
+    catalog = CatalogRepository(session)
+    apps = await catalog.featured(limit=limit)
+    return success(data={"items": [app.model_dump(mode="json") for app in apps]})
 
-    Returns detailed information about a single application.
-    """
+
+@router.get("/recent")
+async def recently_updated_apps(
+    limit: int = Query(default=30, ge=1, le=100),
+    session=Depends(get_db),
+) -> dict:
+    """Recently updated applications (materialized view ``mv_recently_updated_apps``)."""
+    catalog = CatalogRepository(session)
+    apps = await catalog.recently_updated(limit=limit)
+    return success(data={"items": [app.model_dump(mode="json") for app in apps]})
+
+
+@router.get("/most-downloaded")
+async def most_downloaded_apps(
+    limit: int = Query(default=30, ge=1, le=100),
+    session=Depends(get_db),
+) -> dict:
+    """Most downloaded applications (materialized view ``mv_most_downloaded_apps``)."""
+    catalog = CatalogRepository(session)
+    apps = await catalog.most_downloaded(limit=limit)
+    return success(data={"items": [app.model_dump(mode="json") for app in apps]})
+
+
+@router.get("/{app_id}")
+async def get_app(app_id: str, session=Depends(get_db)) -> dict:
+    """Get a specific application by ID or slug."""
     try:
         repo = ApplicationRepository(session)
         app = await repo.get_app_by_id_or_slug(app_id)
-
         if app is None:
             raise HTTPException(status_code=404, detail="Application not found")
-
-        return app
-
+        return success(
+            data=app.model_dump(mode="json"),
+            meta={"app_id": app_id, "resolved_id": app.id},
+        )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get app {app_id}: {e}")
+        logger.error("Failed to get app %s: %s", app_id, e)
         raise HTTPException(status_code=500, detail="Service temporarily unavailable") from e

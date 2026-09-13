@@ -1,6 +1,8 @@
-"""API module for OmniSource."""
+"""API module for OmniSource.
 
-from omnisource.api.main import app
-from omnisource.api.routes import *
+Import submodules directly (e.g. ``omnisource.api.main``,
+``omnisource.api.metrics``); importing the FastAPI application here would
+create heavy transitive imports for non-API code.
+"""
 
-__all__ = ["app"]
+__all__ = []

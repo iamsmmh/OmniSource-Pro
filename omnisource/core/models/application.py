@@ -4,7 +4,17 @@ from enum import Enum
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, Column, Float, ForeignKey, String, Table, Text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Table,
+    Text,
+)
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -66,11 +76,28 @@ class Application(Base):
     """Represents a software application (may span multiple repositories)."""
 
     __tablename__ = "applications"
+    # ``updated_at`` is inherited from Base; the explicit index keeps fresh
+    # ``create_all`` schemas identical to the Alembic-managed production schema
+    # (see migration 0008).
+    __table_args__ = (Index("ix_applications_updated_at", "updated_at"),)
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, index=True)
     app_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     slug: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    # Stable platform bundle/package identifier (e.g. com.example.app,
+    # org.project.tool). Primary deduplication key across sources.
+    bundle_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    # Primary category; the many-to-many ``categories`` relationship remains
+    # authoritative for secondary categories.
+    category_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("categories.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # Cumulative download counter, incremented by the analytics ingestion API
+    # and used by the trending/most-downloaded materialized views.
+    download_count: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False, index=True
+    )
     short_description: Mapped[str | None] = mapped_column(String(500))
     long_description: Mapped[str | None] = mapped_column(Text)
     homepage: Mapped[str | None] = mapped_column(String(500))

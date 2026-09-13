@@ -12,6 +12,7 @@ from omnisource.api.routes.health import router as health_router
 from omnisource.api.routes.integration import router as integration_router
 from omnisource.api.routes.latest import router as latest_router
 from omnisource.api.routes.platforms import router as platforms_router
+from omnisource.api.routes.popular import router as popular_router
 from omnisource.api.routes.recommendations import router as recommendations_router
 from omnisource.api.routes.releases import router as releases_router
 from omnisource.api.routes.search import router as search_router
@@ -19,6 +20,7 @@ from omnisource.api.routes.security import router as security_router
 from omnisource.api.routes.stats import router as stats_router
 from omnisource.api.routes.trending import router as trending_router
 from omnisource.api.routes.trust import router as trust_router
+from omnisource.api.routes.webhook_management import router as webhook_management_router
 from omnisource.api.routes.webhooks import router as webhooks_router
 
 __all__ = [
@@ -34,6 +36,7 @@ __all__ = [
     "integration_router",
     "latest_router",
     "platforms_router",
+    "popular_router",
     "recommendations_router",
     "releases_router",
     "search_router",
@@ -41,5 +44,6 @@ __all__ = [
     "stats_router",
     "trending_router",
     "trust_router",
+    "webhook_management_router",
     "webhooks_router",
 ]

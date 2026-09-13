@@ -1,6 +1,6 @@
 """Release and asset models."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
@@ -304,7 +304,7 @@ class ReleaseHistory(Base):
     new_values: Mapped[dict] = mapped_column(JSON, default=dict)
     changed_by: Mapped[str | None] = mapped_column(String(100))
     changed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(UTC), nullable=False
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
     # Relationships

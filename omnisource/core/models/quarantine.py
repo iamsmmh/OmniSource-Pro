@@ -1,6 +1,6 @@
 """Quarantine and security models."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import Enum
 from uuid import UUID, uuid4
 
@@ -55,7 +55,7 @@ class Quarantine(Base):
     description: Mapped[str | None] = mapped_column(Text)
     details: Mapped[dict] = mapped_column(JSON, default=dict)
     quarantined_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(UTC), nullable=False
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     quarantined_by: Mapped[str | None] = mapped_column(String(100))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -88,7 +88,7 @@ class SecurityScan(Base):
     severity: Mapped[str | None] = mapped_column(String(50))
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     scanned_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(UTC), nullable=False
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     scanned_by: Mapped[str | None] = mapped_column(String(100))
     scan_duration_ms: Mapped[int | None] = mapped_column(Integer)

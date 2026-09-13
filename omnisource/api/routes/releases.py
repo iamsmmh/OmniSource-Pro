@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from omnisource.api.dependencies import get_db
+from omnisource.api.envelope import pagination_envelope, success
 from omnisource.config.logging import get_logger
 from omnisource.core.models.release import Release, ReleaseAsset
 from omnisource.core.schemas.omnistore import OmniStoreRelease
@@ -53,7 +54,10 @@ async def list_releases(
                 ).model_dump()
             )
 
-        return {"items": items, "total": total, "page": page}
+        return success(
+            data={"items": items},
+            pagination=pagination_envelope(page, per_page, int(total or 0)),
+        )
     except Exception as e:
         logger.error(f"Failed to list releases: {e}")
         raise HTTPException(status_code=500, detail="Service temporarily unavailable") from e
@@ -70,16 +74,19 @@ async def get_release(release_id: str, session=Depends(get_db)):
         release = result.scalar_one_or_none()
         if release is None:
             raise HTTPException(status_code=404, detail="Release not found")
-        return {
-            "version": release.version,
-            "tag": release.tag,
-            "name": release.name,
-            "body": release.body,
-            "published_at": release.published_at.isoformat() if release.published_at else None,
-            "is_prerelease": release.is_prerelease,
-            "is_draft": release.is_draft,
-            "download_count": release.download_count,
-        }
+        return success(
+            data={
+                "version": release.version,
+                "tag": release.tag,
+                "name": release.name,
+                "body": release.body,
+                "published_at": release.published_at.isoformat() if release.published_at else None,
+                "is_prerelease": release.is_prerelease,
+                "is_draft": release.is_draft,
+                "download_count": release.download_count,
+            },
+            meta={"release_id": release_id},
+        )
     except HTTPException:
         raise
     except Exception as e:

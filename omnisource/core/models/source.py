@@ -1,6 +1,6 @@
 """Source models for external software sources."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
@@ -79,7 +79,7 @@ class SourceHealth(Base):
     latency_ms: Mapped[float | None] = mapped_column(Float)
     error_rate: Mapped[float] = mapped_column(Float, default=0.0)
     last_check_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(UTC), nullable=False
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_failure_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

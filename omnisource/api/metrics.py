@@ -6,6 +6,7 @@ follow Prometheus conventions; all labels are low-cardinality.
 """
 
 import time
+from typing import Any
 
 from prometheus_client import Counter, Gauge, Histogram, generate_latest
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -51,6 +52,59 @@ CONNECTOR_REQUESTS = Counter(
     "Outbound connector requests by source and outcome.",
     ["source", "status"],
 )
+
+# --- Feed sync metrics ---------------------------------------------------------------
+
+SYNC_RUNS = Counter(
+    "omnisource_feed_sync_runs_total",
+    "Feed sync runs by source and outcome.",
+    ["source", "status"],
+)
+SYNC_REPOSITORIES = Counter(
+    "omnisource_feed_sync_repositories_total",
+    "Repositories processed per feed sync run, by outcome.",
+    ["outcome"],
+)
+
+# --- Webhook metrics -------------------------------------------------------------------
+
+WEBHOOK_DELIVERIES = Counter(
+    "omnisource_webhook_deliveries_total",
+    "Outbound webhook deliveries by event and outcome.",
+    ["event", "status"],
+)
+WEBHOOK_DELIVERY_LATENCY = Histogram(
+    "omnisource_webhook_delivery_latency_seconds",
+    "Latency of a single webhook delivery attempt.",
+    ["event"],
+    buckets=(0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10),
+)
+
+# --- Database metrics ------------------------------------------------------------------
+
+DB_QUERY_DURATION = Histogram(
+    "omnisource_db_query_duration_seconds",
+    "Database query latency in seconds (SQLAlchemy cursor executions).",
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+)
+
+# --- Search metrics ----------------------------------------------------------------------
+
+SEARCH_DURATION = Histogram(
+    "omnisource_search_duration_seconds",
+    "Search request latency in seconds.",
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+)
+SEARCH_RESULTS = Histogram(
+    "omnisource_search_results",
+    "Number of results returned per search.",
+    buckets=(0, 1, 5, 10, 25, 50, 100, 250, 500),
+)
+
+# --- Cache metrics -----------------------------------------------------------------------
+
+CACHE_HITS = Counter("omnisource_cache_hits_total", "Response cache hits.", ["tier"])
+CACHE_MISSES = Counter("omnisource_cache_misses_total", "Response cache misses.", ["tier"])
 
 CONTENT_TYPE_LATEST = "text/plain; version=0.0.4; charset=utf-8"
 
@@ -107,12 +161,46 @@ def record_connector_request(source: str, status_name: str) -> None:
     CONNECTOR_REQUESTS.labels(source=source, status=status_name).inc()
 
 
+def setup_db_query_metrics(engine: Any) -> None:
+    """Attach SQLAlchemy event hooks that observe DB query latency.
+
+    Idempotent: safe to call from both the API and worker processes.
+    """
+    from sqlalchemy import event
+
+    if getattr(engine, "_omnisource_metrics_attached", False):
+        return
+
+    def _before(_conn, _cursor, _statement, _params, _context, _executemany):
+        _conn.info["omnisource_query_start"] = time.perf_counter()
+
+    def _after(_conn, _cursor, _statement, _params, _context, _executemany):
+        started = _conn.info.pop("omnisource_query_start", None)
+        if started is not None:
+            DB_QUERY_DURATION.observe(time.perf_counter() - started)
+
+    sync_engine = getattr(engine, "sync_engine", engine)
+    event.listen(sync_engine, "before_cursor_execute", _before)
+    event.listen(sync_engine, "after_cursor_execute", _after)
+    engine._omnisource_metrics_attached = True
+
+
 __all__ = [
+    "CACHE_HITS",
+    "CACHE_MISSES",
     "CONTENT_TYPE_LATEST",
+    "DB_QUERY_DURATION",
     "HTTP_REQUESTS",
     "JOBS_RUNNING",
+    "SEARCH_DURATION",
+    "SEARCH_RESULTS",
+    "SYNC_REPOSITORIES",
+    "SYNC_RUNS",
+    "WEBHOOK_DELIVERIES",
+    "WEBHOOK_DELIVERY_LATENCY",
     "MetricsMiddleware",
     "record_connector_request",
     "record_job",
     "render_metrics",
+    "setup_db_query_metrics",
 ]

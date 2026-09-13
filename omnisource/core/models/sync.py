@@ -32,6 +32,7 @@ class SyncJobType(str, Enum):
     HEALTH_CHECK = "health_check"
     CLEANUP = "cleanup"
     FULL_SYNC = "full_sync"
+    FEED_SYNC = "feed_sync"
 
 
 class SyncJobStatus(str, Enum):

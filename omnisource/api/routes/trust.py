@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from omnisource.api.dependencies import get_db
+from omnisource.api.envelope import success
 from omnisource.core.models.application import Application
 from omnisource.core.models.quarantine import SecurityScan
 from omnisource.core.models.scores import TrustScore
@@ -40,8 +41,8 @@ def _badges(
     return badges
 
 
-@router.get("/{app_id}", response_model=TrustResponse)
-async def app_trust(app_id: str, session=Depends(get_db)) -> TrustResponse:
+@router.get("/{app_id}")
+async def app_trust(app_id: str, session=Depends(get_db)):
     """Return the transparent trust factor breakdown and derived badges for an app."""
     result = await session.execute(
         select(Application)
@@ -57,10 +58,11 @@ async def app_trust(app_id: str, session=Depends(get_db)) -> TrustResponse:
         raise HTTPException(status_code=404, detail="Application not found")
     score = app.trust_score
     factors = score.factors if score and isinstance(score.factors, dict) else {}
-    return TrustResponse(
+    response = TrustResponse(
         app_id=app.app_id,
         score=round(score.normalized_score) if score else None,
         factors={str(key): float(value) for key, value in factors.items()},
         badges=_badges(app, score, app.security_scans),
         calculated_at=score.calculated_at if score else None,
     )
+    return success(data=response.model_dump(mode="json"), meta={"app_id": app_id})

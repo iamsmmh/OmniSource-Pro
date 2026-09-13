@@ -1,6 +1,6 @@
 """Validation result models."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import Enum
 from uuid import UUID, uuid4
 
@@ -76,7 +76,7 @@ class ValidationResult(Base):
     message: Mapped[str | None] = mapped_column(String(500))
     details: Mapped[dict] = mapped_column(JSON, default=dict)
     validated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(UTC), nullable=False
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     validated_by: Mapped[str | None] = mapped_column(String(100))
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
