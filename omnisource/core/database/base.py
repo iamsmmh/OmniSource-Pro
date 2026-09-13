@@ -1,5 +1,6 @@
 """Database initialization and engine management."""
 
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -7,6 +8,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
 from omnisource.config.settings import get_settings
+
+logger = logging.getLogger(__name__)
 
 # Global engine instances
 _engine: AsyncEngine | None = None
@@ -32,6 +35,14 @@ def get_async_engine() -> AsyncEngine:
             )
 
         _engine = create_async_engine(url, **engine_kwargs)
+
+        # Observe query latency for the database performance dashboard.
+        try:
+            from omnisource.api.metrics import setup_db_query_metrics
+
+            setup_db_query_metrics(_engine)
+        except Exception as exc:  # pragma: no cover - metrics must never break startup
+            logger.debug("DB query metrics not attached: %s", exc)
 
         # SQLite: enable WAL so API readers are not blocked by the
         # collection worker's long write transactions, and wait (instead of
