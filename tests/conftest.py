@@ -9,6 +9,7 @@ import os
 from datetime import UTC, datetime
 
 import pytest_asyncio
+import sqlalchemy as sa
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("MEILISEARCH_URL", "")  # disable search indexing in tests
@@ -23,9 +24,14 @@ from omnisource.connectors.base import (
     SourceConnector,
 )
 from omnisource.core.database.base import close_db, get_async_engine
+from omnisource.core.database.catalog_views import create_catalog_views, drop_catalog_views
 from omnisource.core.database.session import create_session
 from omnisource.core.models import Base
-from omnisource.core.models.application import Application, OpenSourceStatus
+from omnisource.core.models.application import (
+    Application,
+    ApplicationStatus,
+    OpenSourceStatus,
+)
 from omnisource.core.models.asset import (
     Asset,
     AssetSource,
@@ -136,11 +142,17 @@ async def mock_connector():
 
 @pytest_asyncio.fixture(autouse=True)
 async def database():
-    """Create a fresh schema before each test and dispose it afterwards."""
+    """Create a fresh schema (including catalogue views) before each test."""
     engine = get_async_engine()
+
+    def _prepare(sync_conn: sa.engine.Connection) -> None:
+        Base.metadata.drop_all(sync_conn)
+        drop_catalog_views(sync_conn)
+        Base.metadata.create_all(sync_conn)
+        create_catalog_views(sync_conn)
+
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_prepare)
     yield
     await close_db()
 
@@ -238,6 +250,7 @@ async def seeded_application(session):
         name="localsend",
         long_description="Share files",
         open_source_status=OpenSourceStatus.OPEN_SOURCE,
+        status=ApplicationStatus.PUBLISHED,
         is_active=True,
         developer=developer,
         license=license_obj,

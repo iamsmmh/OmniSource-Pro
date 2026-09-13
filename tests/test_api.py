@@ -24,8 +24,11 @@ async def test_list_apps_endpoint(seeded_application):
         response = await client.get("/api/v1/apps")
     assert response.status_code == 200
     body = response.json()
-    assert body["total"] == 1
-    assert body["items"][0]["id"] == "localsend"
+    assert body["success"] is True
+    assert body["data"]["items"][0]["id"] == "localsend"
+    assert body["pagination"]["total"] == 1
+    assert body["pagination"]["page"] == 1
+    assert body["pagination"]["has_next"] is False
 
 
 async def test_get_app_by_slug(seeded_application):
@@ -33,9 +36,10 @@ async def test_get_app_by_slug(seeded_application):
         response = await client.get("/api/v1/apps/localsend")
     assert response.status_code == 200
     body = response.json()
-    assert body["name"] == "localsend"
-    assert body["license"] == "Apache-2.0"
-    assert "linux" in body["platforms"]
+    assert body["success"] is True
+    assert body["data"]["name"] == "localsend"
+    assert body["data"]["license"] == "Apache-2.0"
+    assert "linux" in body["data"]["platforms"]
 
 
 async def test_trending_and_latest(seeded_application):
@@ -43,9 +47,11 @@ async def test_trending_and_latest(seeded_application):
         trending = await client.get("/api/v1/trending")
         latest = await client.get("/api/v1/latest")
     assert trending.status_code == 200
-    assert len(trending.json()) == 1
+    assert trending.json()["success"] is True
+    assert len(trending.json()["data"]["items"]) == 1
     assert latest.status_code == 200
-    assert len(latest.json()) == 1
+    assert latest.json()["success"] is True
+    assert len(latest.json()["data"]["items"]) == 1
 
 
 async def test_stats_endpoint(seeded_application):
@@ -53,8 +59,9 @@ async def test_stats_endpoint(seeded_application):
         response = await client.get("/api/v1/stats")
     assert response.status_code == 200
     body = response.json()
-    assert body["applications"] == 1
-    assert body["repositories"] == 1
+    assert body["success"] is True
+    assert body["data"]["applications"] == 1
+    assert body["data"]["repositories"] == 1
 
 
 async def test_search_endpoint(seeded_application):

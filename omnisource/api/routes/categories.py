@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 
 from omnisource.api.dependencies import get_db
+from omnisource.api.envelope import success
 from omnisource.config.logging import get_logger
 from omnisource.core.models.application import application_categories
 from omnisource.core.models.category import Category
@@ -14,7 +15,7 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.get("", response_model=list[CategorySchema])
+@router.get("")
 async def list_categories(
     active_only: bool = Query(default=True, description="Only active categories"),
     session=Depends(get_db),
@@ -25,7 +26,11 @@ async def list_categories(
         if active_only:
             query = query.where(Category.is_active.is_(True))
         result = await session.execute(query)
-        return list(result.scalars().all())
+        categories = list(result.scalars().all())
+        return success(
+            data={"items": [CategorySchema.model_validate(c).model_dump() for c in categories]},
+            meta={"count": len(categories)},
+        )
     except Exception as e:
         logger.error(f"Failed to list categories: {e}")
         raise HTTPException(status_code=500, detail="Service temporarily unavailable") from e
@@ -48,7 +53,7 @@ async def get_category(slug: str, session=Depends(get_db)):
 
         data = CategorySchema.model_validate(category).model_dump()
         data["app_count"] = app_count
-        return data
+        return success(data=data, meta={"slug": slug})
     except HTTPException:
         raise
     except Exception as e:

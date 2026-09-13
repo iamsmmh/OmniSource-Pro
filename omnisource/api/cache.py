@@ -1,16 +1,36 @@
-"""Response cache and ETag middleware for public catalogue endpoints."""
+"""Response cache and ETag middleware for public catalogue endpoints.
 
-import asyncio
-import base64
+Caching policy (Phase 8):
+
+==============================  ======  =====================================
+Resource                        TTL     Cache tags
+==============================  ======  =====================================
+Trending / popular / latest     5 min   trending, apps
+Categories / platforms /        15 min  categories, apps
+developers / recommendations
+App detail                      1 h     app:{id}, apps, trending,
+                                        recommendations, categories, feeds
+App list                        60 s    apps, trending, categories,
+                                        recommendations, feeds
+Search                          30 s    apps, categories, recommendations
+Feeds                           60 s    feeds
+==============================  ======  =====================================
+
+Writes (feed sync, admin actions, analytics ingest) purge the affected tags
+via :mod:`omnisource.cache.invalidation`, so the next request rebuilds from
+PostgreSQL. ETag/304 support lets CDN clients avoid re-downloading unchanged
+bodies.
+"""
+
+from __future__ import annotations
+
 import hashlib
-import json
 import time
-from collections import OrderedDict
-from dataclasses import dataclass
 from typing import Any
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from omnisource.cache.store import CachedResponse, get_cache_store
 from omnisource.config.logging import get_logger
 from omnisource.config.settings import get_settings
 
@@ -25,6 +45,7 @@ _CACHEABLE_PREFIXES = (
     "/api/v1/developers",
     "/api/v1/trending",
     "/api/v1/latest",
+    "/api/v1/popular",
     "/api/v1/stats",
     "/api/v1/recommendations",
     "/api/v1/trust",
@@ -32,140 +53,84 @@ _CACHEABLE_PREFIXES = (
     "/feeds/",
 )
 
-
-@dataclass(frozen=True)
-class CachedResponse:
-    status: int
-    headers: list[tuple[bytes, bytes]]
-    body: bytes
-    expires_at: float
+# TTL tiers (seconds)
+TTL_TRENDING = 300  # 5 minutes
+TTL_CATEGORIES = 900  # 15 minutes
+TTL_APP_DETAIL = 3600  # 1 hour
+TTL_DEFAULT = 60
 
 
-class ResponseCacheStore:
-    """Bounded in-process cache with an optional Redis replica.
+def _tags_for(path: str) -> list[str]:
+    from omnisource.cache import invalidation as inv
 
-    The process-local tier prevents network cache availability from becoming a
-    request dependency. Redis extends hit rates safely across API replicas;
-    errors only disable that tier and are never propagated to clients.
-    """
+    if path.startswith("/api/v1/apps/"):
+        app_id = path[len("/api/v1/apps/") :].split("/", 1)[0]
+        if app_id and not app_id.startswith(("featured", "recent", "most-downloaded")):
+            return [
+                inv.app_tag(app_id),
+                inv.TAG_APPS,
+                inv.TAG_TRENDING,
+                inv.TAG_RECOMMENDATIONS,
+                inv.TAG_CATEGORIES,
+                inv.TAG_FEEDS,
+            ]
+        return [
+            inv.TAG_APPS,
+            inv.TAG_TRENDING,
+            inv.TAG_RECOMMENDATIONS,
+            inv.TAG_CATEGORIES,
+            inv.TAG_FEEDS,
+        ]
+    if path.startswith(("/api/v1/trending", "/api/v1/latest", "/api/v1/popular", "/api/v1/stats")):
+        return [inv.TAG_TRENDING, inv.TAG_APPS]
+    if path.startswith(("/api/v1/categories", "/api/v1/platforms", "/api/v1/developers")):
+        return [inv.TAG_CATEGORIES, inv.TAG_APPS]
+    if path.startswith("/api/v1/recommendations"):
+        return [inv.TAG_RECOMMENDATIONS, inv.TAG_APPS]
+    if path.startswith(("/api/v1/trust/", "/api/v1/security/")):
+        app_id = path.rsplit("/", 1)[-1]
+        return [inv.app_tag(app_id), inv.TAG_APPS]
+    if path.startswith("/feeds/"):
+        return [inv.TAG_FEEDS]
+    if path.startswith("/api/v1/releases"):
+        return [inv.TAG_APPS, inv.TAG_FEEDS]
+    return [inv.TAG_APPS]
 
-    def __init__(self, max_entries: int = 2000) -> None:
-        self._entries: OrderedDict[str, CachedResponse] = OrderedDict()
-        self._max_entries = max_entries
-        self._redis: Any = None
-        self._redis_disabled = False
-        self._lock = asyncio.Lock()
 
-    @staticmethod
-    def _redis_key(key: str) -> str:
-        return "omnisource:response:" + hashlib.sha256(key.encode("utf-8")).hexdigest()
-
-    async def _redis_client(self) -> Any | None:
-        if self._redis_disabled:
-            return None
-        if self._redis is None:
-            redis_url = get_settings().redis.REDIS_URL
-            if not redis_url:
-                self._redis_disabled = True
-                return None
-            try:
-                import redis.asyncio as redis
-
-                self._redis = redis.from_url(
-                    redis_url, socket_connect_timeout=0.05, socket_timeout=0.05
-                )
-            except Exception:
-                self._redis_disabled = True
-                return None
-        return self._redis
-
-    async def get(self, key: str) -> CachedResponse | None:
-        now = time.monotonic()
-        async with self._lock:
-            cached = self._entries.get(key)
-            if cached and cached.expires_at > now:
-                self._entries.move_to_end(key)
-                return cached
-            if cached:
-                self._entries.pop(key, None)
-        client = await self._redis_client()
-        if client is None:
-            return None
-        try:
-            raw = await client.get(self._redis_key(key))
-            if raw is None:
-                return None
-            encoded = json.loads(raw)
-            ttl = max(1, int(encoded["expires_unix"] - time.time()))
-            cached = CachedResponse(
-                status=int(encoded["status"]),
-                headers=[
-                    (base64.b64decode(key), base64.b64decode(value))
-                    for key, value in encoded["headers"]
-                ],
-                body=base64.b64decode(encoded["body"]),
-                expires_at=time.monotonic() + ttl,
-            )
-            async with self._lock:
-                self._put_memory(key, cached)
-            return cached
-        except Exception as exc:
-            self._disable_redis(exc)
-            return None
-
-    async def set(self, key: str, response: CachedResponse, ttl_seconds: int) -> None:
-        if ttl_seconds <= 0:
-            return
-        async with self._lock:
-            self._put_memory(key, response)
-        client = await self._redis_client()
-        if client is None:
-            return
-        try:
-            serialized = json.dumps(
-                {
-                    "status": response.status,
-                    "headers": [
-                        (
-                            base64.b64encode(key).decode("ascii"),
-                            base64.b64encode(value).decode("ascii"),
-                        )
-                        for key, value in response.headers
-                    ],
-                    "body": base64.b64encode(response.body).decode("ascii"),
-                    "expires_unix": time.time() + ttl_seconds,
-                },
-                separators=(",", ":"),
-            )
-            await client.setex(self._redis_key(key), ttl_seconds, serialized)
-        except Exception as exc:
-            self._disable_redis(exc)
-
-    def _put_memory(self, key: str, response: CachedResponse) -> None:
-        self._entries[key] = response
-        self._entries.move_to_end(key)
-        while len(self._entries) > self._max_entries:
-            self._entries.popitem(last=False)
-
-    def _disable_redis(self, exc: Exception) -> None:
-        if not self._redis_disabled:
-            logger.warning("Response-cache Redis tier unavailable; using local cache: %s", exc)
-        self._redis_disabled = True
+def _ttl_for(path: str) -> int:
+    settings = get_settings()
+    if path.startswith("/api/v1/search"):
+        return settings.api.API_SEARCH_CACHE_TTL
+    if path.startswith(("/api/v1/trending", "/api/v1/latest", "/api/v1/popular", "/api/v1/stats")):
+        return TTL_TRENDING
+    if path.startswith(
+        ("/api/v1/categories", "/api/v1/platforms", "/api/v1/developers", "/api/v1/recommendations")
+    ):
+        return TTL_CATEGORIES
+    if path.startswith("/api/v1/apps/"):
+        return TTL_APP_DETAIL
+    return TTL_DEFAULT
 
 
 class ResponseCacheMiddleware:
-    """Cache anonymous GET responses and serve strong ETags/304s for CDN clients."""
+    """Cache anonymous GET responses with per-resource TTLs, ETags, and 304s."""
 
-    def __init__(self, app: ASGIApp, store: ResponseCacheStore | None = None) -> None:
+    def __init__(self, app: ASGIApp, store: Any | None = None) -> None:
         self.app = app
-        self.store = store or ResponseCacheStore()
+        self._store_override = store
+
+    async def _store(self) -> Any:
+        if self._store_override is not None:
+            return self._store_override
+        return await get_cache_store()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or not self._is_cacheable(scope):
             await self.app(scope, receive, send)
             return
         key = self._key(scope)
-        cached = await self.store.get(key)
+        store = await self._store()
+        cached = await store.get(key)
         if cached is not None:
             await self._send_cached(scope, send, cached)
             return
@@ -195,18 +160,20 @@ class ResponseCacheMiddleware:
         if status_code == 200 and b"application/json" in content_type and len(body) <= 2_000_000:
             etag = self._etag(body)
             headers = self._replace_header(headers, b"etag", etag.encode("ascii"))
-            ttl = self._ttl(scope)
+            ttl = _ttl_for(scope["path"])
             headers = self._replace_header(
-                headers, b"cache-control", f"public, max-age={ttl}, s-maxage={ttl}".encode("ascii")
+                headers,
+                b"cache-control",
+                f"public, max-age={ttl}, s-maxage={ttl}".encode("ascii"),
             )
-            cached = CachedResponse(
+            cached_response = CachedResponse(
                 status=status_code,
                 headers=headers,
                 body=body,
                 expires_at=time.monotonic() + ttl,
             )
-            await self.store.set(key, cached, ttl)
-            await self._send_cached(scope, send, cached)
+            await store.set(key, cached_response, ttl, tags=_tags_for(scope["path"]))
+            await self._send_cached(scope, send, cached_response)
             return
 
         await send({"type": "http.response.start", "status": status_code, "headers": headers})
@@ -233,15 +200,6 @@ class ResponseCacheMiddleware:
         return f"{scope['path']}?{query}|lang={language}"
 
     @staticmethod
-    def _ttl(scope: Scope) -> int:
-        settings = get_settings()
-        return (
-            settings.api.API_SEARCH_CACHE_TTL
-            if scope["path"].startswith("/api/v1/search")
-            else settings.api.API_RESPONSE_CACHE_TTL
-        )
-
-    @staticmethod
     def _etag(body: bytes) -> str:
         return '"' + hashlib.sha256(body).hexdigest() + '"'
 
@@ -249,7 +207,9 @@ class ResponseCacheMiddleware:
     def _replace_header(
         headers: list[tuple[bytes, bytes]], name: bytes, value: bytes
     ) -> list[tuple[bytes, bytes]]:
-        return [(key, old) for key, old in headers if key.lower() != name] + [(name, value)]
+        kept = [(key, old) for key, old in headers if key.lower() != name]
+        kept.append((name, value))
+        return kept
 
     async def _send_cached(self, scope: Scope, send: Send, cached: CachedResponse) -> None:
         headers = dict(scope.get("headers", []))
@@ -273,4 +233,4 @@ class ResponseCacheMiddleware:
         await send({"type": "http.response.body", "body": cached.body, "more_body": False})
 
 
-__all__ = ["ResponseCacheMiddleware", "ResponseCacheStore"]
+__all__ = ["TTL_APP_DETAIL", "TTL_CATEGORIES", "TTL_TRENDING", "ResponseCacheMiddleware"]

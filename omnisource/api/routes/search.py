@@ -1,19 +1,40 @@
 """
 Search API routes for OmniSource.
+
+Every search is recorded in ``search_events`` (normalized query, result
+count, latency) which powers popular queries, trending searches, and
+autocompletion suggestions.
 """
 
+import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from omnisource.api.dependencies import get_db
 from omnisource.config.logging import get_logger
-from omnisource.core.repositories.application import ApplicationRepository
 from omnisource.core.schemas.omnistore import PaginatedApps
+from omnisource.intelligence.analytics_service import AnalyticsService
+from omnisource.search.service import SearchService
 
 logger = get_logger(__name__)
 
 router = APIRouter()
+
+
+async def _record_search(
+    session: AsyncSession,
+    query: str,
+    results_count: int,
+    took_ms: int,
+) -> None:
+    try:
+        service = AnalyticsService(session)
+        await service.record_search(query, results_count=results_count, took_ms=took_ms)
+        await session.commit()
+    except Exception:
+        logger.debug("Search event recording failed", exc_info=True)
 
 
 @router.get("", response_model=PaginatedApps)
@@ -34,7 +55,7 @@ async def search_apps(
     ),
     sort: str | None = Query(
         default="relevance",
-        description="Sort by: relevance, popularity, updated, newest, name, trust",
+        description="Sort by: relevance, popularity, updated, newest, name, trust, downloads",
     ),
     page: int = Query(default=1, ge=1, description="Page number"),
     per_page: int = Query(default=30, ge=1, le=100, description="Items per page"),
@@ -47,36 +68,70 @@ async def search_apps(
     """
     Search applications with full-text search and filtering.
     """
+    started = time.perf_counter()
     try:
-        repo = ApplicationRepository(session)
-
-        # Build filter parameters
-        filters = {
-            "q": q,
-            "platform": platform,
-            "category": category,
-            "developer": developer,
-            "license": license,
-            "architecture": architecture,
-            "open_source": open_source,
-            "min_trust": str(min_trust) if min_trust is not None else None,
-            "min_quality": str(min_quality) if min_quality is not None else None,
-            "updated_since": updated_since,
-            "sort": sort,
-        }
-
-        # Semantic re-ranking fetches a wider candidate pool first.
-        effective_per_page = per_page * 3 if semantic else per_page
-        result = await repo.get_apps_paginated(page=page, per_page=effective_per_page, **filters)
-
-        if semantic and q:
+        service = SearchService()
+        result, backend = await service.search(
+            session,
+            q,
+            platform=platform,
+            category=category,
+            developer=developer,
+            license_=license,
+            architecture=architecture,
+            open_source=open_source,
+            min_trust=min_trust,
+            min_quality=min_quality,
+            updated_since=updated_since,
+            sort=sort,
+            page=page,
+            per_page=per_page,
+        )
+        if backend == "database" and semantic and q:
             result = await rerank_hybrid(session, q, result, per_page)
-
+        await _record_search(
+            session, q or "", len(result.items), int((time.perf_counter() - started) * 1000)
+        )
         return result
 
     except Exception as e:
         logger.error(f"Search failed: {e}")
         raise HTTPException(status_code=500, detail="Service temporarily unavailable") from e
+
+
+@router.get("/suggestions")
+async def search_suggestions(
+    q: str = Query(..., min_length=1, max_length=200, description="Search query prefix"),
+    limit: int = Query(default=10, ge=1, le=25),
+    session=Depends(get_db),
+) -> dict[str, Any]:
+    """Query suggestions: index-backed matches plus popular-query completion."""
+    service = SearchService()
+    index_suggestions = await service.suggestions(q, limit=limit)
+    lower_q = q.strip().lower()
+
+    from omnisource.intelligence.analytics_service import AnalyticsService
+
+    popular = await AnalyticsService(session).popular_queries(days=30, limit=limit)
+    popular_matches = [
+        {"text": row["query"], "source": "popular"}
+        for row in popular
+        if lower_q
+        and row["query"].startswith(lower_q)
+        and row["query"] not in {s["text"].lower() for s in index_suggestions}
+    ][:limit]
+
+    seen: set[str] = set()
+    merged: list[dict[str, Any]] = []
+    for suggestion in [*index_suggestions, *popular_matches]:
+        key = suggestion["text"].lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(suggestion)
+        if len(merged) >= limit:
+            break
+    return {"query": q, "suggestions": merged}
 
 
 async def rerank_hybrid(
